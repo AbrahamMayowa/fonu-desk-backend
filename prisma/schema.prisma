@@ -80,6 +80,9 @@ model Organization {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  @@unique([name, ownerId])
 }
 
 model Business {

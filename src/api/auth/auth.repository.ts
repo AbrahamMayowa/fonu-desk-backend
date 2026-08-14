@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@database/prisma.service';
-import { Prisma, User, Otp } from '@prisma-local';
+import { Prisma, User, Otp } from '@prisma-pg';
 
 export type UserWithRelations = Prisma.UserGetPayload<{
   include: {

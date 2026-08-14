@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@database/prisma.service';
-import { Prisma, User, OrganizationMember, Invitation } from '@prisma-local';
+import { Prisma, User, OrganizationMember, Invitation } from '@prisma-pg';
 export type UserWithMemberships = Prisma.UserGetPayload<{
   include: {
     memberships: {

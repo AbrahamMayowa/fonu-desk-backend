@@ -8,6 +8,9 @@ import { AuthModule } from './api/auth/auth.module';
 import { UsersModule } from './api/users/users.module';
 import { AuthenticationMiddleware } from './common/middlewares/auth.middleware';
 import { MiddlewareConsumer, NestModule, RequestMethod } from '@nestjs/common';
+import { LoggerModule } from './common/logger/logger.module';
+import { AuditLogsModule } from './api/audit-logs/audit-logs.module';
+import { OrganizationsModule } from './api/organizations/organizations.module';
 
 @Module({
   imports: [
@@ -16,6 +19,9 @@ import { MiddlewareConsumer, NestModule, RequestMethod } from '@nestjs/common';
     EmailModule,
     AuthModule,
     UsersModule,
+    LoggerModule,
+    AuditLogsModule,
+    OrganizationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

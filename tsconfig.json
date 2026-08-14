@@ -17,7 +17,7 @@
     "paths": {
       "@database": ["./src/database"],
       "@database/*": ["./src/database/*"],
-      "@prisma-local": ["./prisma/client/client"]
+      "@prisma-pg": ["./prisma/client/client"]
     },
     "incremental": true,
     "skipLibCheck": true,
