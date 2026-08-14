@@ -75,8 +75,11 @@ model Organization {
   tickets     Ticket[]
   auditLogs   AuditLog[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@unique([name, ownerId])
 }
 
 model Business {

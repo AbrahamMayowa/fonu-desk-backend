@@ -3,4 +3,6 @@ dist/
 .env
 REQUIREMENTS.md
 
-/generated/prisma
+prisma/client/
+
+

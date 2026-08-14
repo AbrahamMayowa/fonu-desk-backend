@@ -155,7 +155,8 @@ exports.Prisma.OrganizationScalarFieldEnum = {
   name: 'name',
   ownerId: 'ownerId',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
 };
 
 exports.Prisma.BusinessScalarFieldEnum = {

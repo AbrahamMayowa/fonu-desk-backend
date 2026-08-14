@@ -5847,6 +5847,7 @@ export namespace Prisma {
     ownerId: string | null
     createdAt: Date | null
     updatedAt: Date | null
+    deletedAt: Date | null
   }
 
   export type OrganizationMaxAggregateOutputType = {
@@ -5855,6 +5856,7 @@ export namespace Prisma {
     ownerId: string | null
     createdAt: Date | null
     updatedAt: Date | null
+    deletedAt: Date | null
   }
 
   export type OrganizationCountAggregateOutputType = {
@@ -5863,6 +5865,7 @@ export namespace Prisma {
     ownerId: number
     createdAt: number
     updatedAt: number
+    deletedAt: number
     _all: number
   }
 
@@ -5873,6 +5876,7 @@ export namespace Prisma {
     ownerId?: true
     createdAt?: true
     updatedAt?: true
+    deletedAt?: true
   }
 
   export type OrganizationMaxAggregateInputType = {
@@ -5881,6 +5885,7 @@ export namespace Prisma {
     ownerId?: true
     createdAt?: true
     updatedAt?: true
+    deletedAt?: true
   }
 
   export type OrganizationCountAggregateInputType = {
@@ -5889,6 +5894,7 @@ export namespace Prisma {
     ownerId?: true
     createdAt?: true
     updatedAt?: true
+    deletedAt?: true
     _all?: true
   }
 
@@ -5970,6 +5976,7 @@ export namespace Prisma {
     ownerId: string
     createdAt: Date
     updatedAt: Date
+    deletedAt: Date | null
     _count: OrganizationCountAggregateOutputType | null
     _min: OrganizationMinAggregateOutputType | null
     _max: OrganizationMaxAggregateOutputType | null
@@ -5995,6 +6002,7 @@ export namespace Prisma {
     ownerId?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    deletedAt?: boolean
     owner?: boolean | UserDefaultArgs<ExtArgs>
     memberships?: boolean | Organization$membershipsArgs<ExtArgs>
     tickets?: boolean | Organization$ticketsArgs<ExtArgs>
@@ -6008,6 +6016,7 @@ export namespace Prisma {
     ownerId?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    deletedAt?: boolean
     owner?: boolean | UserDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["organization"]>
 
@@ -6017,6 +6026,7 @@ export namespace Prisma {
     ownerId?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    deletedAt?: boolean
     owner?: boolean | UserDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["organization"]>
 
@@ -6026,9 +6036,10 @@ export namespace Prisma {
     ownerId?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    deletedAt?: boolean
   }
 
-  export type OrganizationOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "ownerId" | "createdAt" | "updatedAt", ExtArgs["result"]["organization"]>
+  export type OrganizationOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "ownerId" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["organization"]>
   export type OrganizationInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     owner?: boolean | UserDefaultArgs<ExtArgs>
     memberships?: boolean | Organization$membershipsArgs<ExtArgs>
@@ -6057,6 +6068,7 @@ export namespace Prisma {
       ownerId: string
       createdAt: Date
       updatedAt: Date
+      deletedAt: Date | null
     }, ExtArgs["result"]["organization"]>
     composites: {}
   }
@@ -6489,6 +6501,7 @@ export namespace Prisma {
     readonly ownerId: FieldRef<"Organization", 'String'>
     readonly createdAt: FieldRef<"Organization", 'DateTime'>
     readonly updatedAt: FieldRef<"Organization", 'DateTime'>
+    readonly deletedAt: FieldRef<"Organization", 'DateTime'>
   }
     
 
@@ -15955,7 +15968,8 @@ export namespace Prisma {
     name: 'name',
     ownerId: 'ownerId',
     createdAt: 'createdAt',
-    updatedAt: 'updatedAt'
+    updatedAt: 'updatedAt',
+    deletedAt: 'deletedAt'
   };
 
   export type OrganizationScalarFieldEnum = (typeof OrganizationScalarFieldEnum)[keyof typeof OrganizationScalarFieldEnum]
@@ -16455,6 +16469,7 @@ export namespace Prisma {
     ownerId?: StringFilter<"Organization"> | string
     createdAt?: DateTimeFilter<"Organization"> | Date | string
     updatedAt?: DateTimeFilter<"Organization"> | Date | string
+    deletedAt?: DateTimeNullableFilter<"Organization"> | Date | string | null
     owner?: XOR<UserScalarRelationFilter, UserWhereInput>
     memberships?: OrganizationMemberListRelationFilter
     tickets?: TicketListRelationFilter
@@ -16467,6 +16482,7 @@ export namespace Prisma {
     ownerId?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    deletedAt?: SortOrderInput | SortOrder
     owner?: UserOrderByWithRelationInput
     memberships?: OrganizationMemberOrderByRelationAggregateInput
     tickets?: TicketOrderByRelationAggregateInput
@@ -16475,6 +16491,7 @@ export namespace Prisma {
 
   export type OrganizationWhereUniqueInput = Prisma.AtLeast<{
     id?: string
+    name_ownerId?: OrganizationNameOwnerIdCompoundUniqueInput
     AND?: OrganizationWhereInput | OrganizationWhereInput[]
     OR?: OrganizationWhereInput[]
     NOT?: OrganizationWhereInput | OrganizationWhereInput[]
@@ -16482,11 +16499,12 @@ export namespace Prisma {
     ownerId?: StringFilter<"Organization"> | string
     createdAt?: DateTimeFilter<"Organization"> | Date | string
     updatedAt?: DateTimeFilter<"Organization"> | Date | string
+    deletedAt?: DateTimeNullableFilter<"Organization"> | Date | string | null
     owner?: XOR<UserScalarRelationFilter, UserWhereInput>
     memberships?: OrganizationMemberListRelationFilter
     tickets?: TicketListRelationFilter
     auditLogs?: AuditLogListRelationFilter
-  }, "id">
+  }, "id" | "name_ownerId">
 
   export type OrganizationOrderByWithAggregationInput = {
     id?: SortOrder
@@ -16494,6 +16512,7 @@ export namespace Prisma {
     ownerId?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    deletedAt?: SortOrderInput | SortOrder
     _count?: OrganizationCountOrderByAggregateInput
     _max?: OrganizationMaxOrderByAggregateInput
     _min?: OrganizationMinOrderByAggregateInput
@@ -16508,6 +16527,7 @@ export namespace Prisma {
     ownerId?: StringWithAggregatesFilter<"Organization"> | string
     createdAt?: DateTimeWithAggregatesFilter<"Organization"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Organization"> | Date | string
+    deletedAt?: DateTimeNullableWithAggregatesFilter<"Organization"> | Date | string | null
   }
 
   export type BusinessWhereInput = {
@@ -17344,6 +17364,7 @@ export namespace Prisma {
     name: string
     createdAt?: Date | string
     updatedAt?: Date | string
+    deletedAt?: Date | string | null
     owner: UserCreateNestedOneWithoutOwnedOrganizationsInput
     memberships?: OrganizationMemberCreateNestedManyWithoutOrganizationInput
     tickets?: TicketCreateNestedManyWithoutOrganizationInput
@@ -17356,6 +17377,7 @@ export namespace Prisma {
     ownerId: string
     createdAt?: Date | string
     updatedAt?: Date | string
+    deletedAt?: Date | string | null
     memberships?: OrganizationMemberUncheckedCreateNestedManyWithoutOrganizationInput
     tickets?: TicketUncheckedCreateNestedManyWithoutOrganizationInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutOrganizationInput
@@ -17366,6 +17388,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     owner?: UserUpdateOneRequiredWithoutOwnedOrganizationsNestedInput
     memberships?: OrganizationMemberUpdateManyWithoutOrganizationNestedInput
     tickets?: TicketUpdateManyWithoutOrganizationNestedInput
@@ -17378,6 +17401,7 @@ export namespace Prisma {
     ownerId?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     memberships?: OrganizationMemberUncheckedUpdateManyWithoutOrganizationNestedInput
     tickets?: TicketUncheckedUpdateManyWithoutOrganizationNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutOrganizationNestedInput
@@ -17389,6 +17413,7 @@ export namespace Prisma {
     ownerId: string
     createdAt?: Date | string
     updatedAt?: Date | string
+    deletedAt?: Date | string | null
   }
 
   export type OrganizationUpdateManyMutationInput = {
@@ -17396,6 +17421,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   }
 
   export type OrganizationUncheckedUpdateManyInput = {
@@ -17404,6 +17430,7 @@ export namespace Prisma {
     ownerId?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   }
 
   export type BusinessCreateInput = {
@@ -18359,12 +18386,18 @@ export namespace Prisma {
     _max?: NestedDateTimeNullableFilter<$PrismaModel>
   }
 
+  export type OrganizationNameOwnerIdCompoundUniqueInput = {
+    name: string
+    ownerId: string
+  }
+
   export type OrganizationCountOrderByAggregateInput = {
     id?: SortOrder
     name?: SortOrder
     ownerId?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    deletedAt?: SortOrder
   }
 
   export type OrganizationMaxOrderByAggregateInput = {
@@ -18373,6 +18406,7 @@ export namespace Prisma {
     ownerId?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    deletedAt?: SortOrder
   }
 
   export type OrganizationMinOrderByAggregateInput = {
@@ -18381,6 +18415,7 @@ export namespace Prisma {
     ownerId?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    deletedAt?: SortOrder
   }
 
   export type BusinessCountOrderByAggregateInput = {
@@ -20146,6 +20181,7 @@ export namespace Prisma {
     name: string
     createdAt?: Date | string
     updatedAt?: Date | string
+    deletedAt?: Date | string | null
     memberships?: OrganizationMemberCreateNestedManyWithoutOrganizationInput
     tickets?: TicketCreateNestedManyWithoutOrganizationInput
     auditLogs?: AuditLogCreateNestedManyWithoutOrganizationInput
@@ -20156,6 +20192,7 @@ export namespace Prisma {
     name: string
     createdAt?: Date | string
     updatedAt?: Date | string
+    deletedAt?: Date | string | null
     memberships?: OrganizationMemberUncheckedCreateNestedManyWithoutOrganizationInput
     tickets?: TicketUncheckedCreateNestedManyWithoutOrganizationInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutOrganizationInput
@@ -20539,6 +20576,7 @@ export namespace Prisma {
     ownerId?: StringFilter<"Organization"> | string
     createdAt?: DateTimeFilter<"Organization"> | Date | string
     updatedAt?: DateTimeFilter<"Organization"> | Date | string
+    deletedAt?: DateTimeNullableFilter<"Organization"> | Date | string | null
   }
 
   export type BusinessUpsertWithWhereUniqueWithoutOwnerInput = {
@@ -20862,6 +20900,7 @@ export namespace Prisma {
     name: string
     createdAt?: Date | string
     updatedAt?: Date | string
+    deletedAt?: Date | string | null
     owner: UserCreateNestedOneWithoutOwnedOrganizationsInput
     tickets?: TicketCreateNestedManyWithoutOrganizationInput
     auditLogs?: AuditLogCreateNestedManyWithoutOrganizationInput
@@ -20873,6 +20912,7 @@ export namespace Prisma {
     ownerId: string
     createdAt?: Date | string
     updatedAt?: Date | string
+    deletedAt?: Date | string | null
     tickets?: TicketUncheckedCreateNestedManyWithoutOrganizationInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutOrganizationInput
   }
@@ -20997,6 +21037,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     owner?: UserUpdateOneRequiredWithoutOwnedOrganizationsNestedInput
     tickets?: TicketUpdateManyWithoutOrganizationNestedInput
     auditLogs?: AuditLogUpdateManyWithoutOrganizationNestedInput
@@ -21008,6 +21049,7 @@ export namespace Prisma {
     ownerId?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     tickets?: TicketUncheckedUpdateManyWithoutOrganizationNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutOrganizationNestedInput
   }
@@ -21629,6 +21671,7 @@ export namespace Prisma {
     name: string
     createdAt?: Date | string
     updatedAt?: Date | string
+    deletedAt?: Date | string | null
     owner: UserCreateNestedOneWithoutOwnedOrganizationsInput
     memberships?: OrganizationMemberCreateNestedManyWithoutOrganizationInput
     auditLogs?: AuditLogCreateNestedManyWithoutOrganizationInput
@@ -21640,6 +21683,7 @@ export namespace Prisma {
     ownerId: string
     createdAt?: Date | string
     updatedAt?: Date | string
+    deletedAt?: Date | string | null
     memberships?: OrganizationMemberUncheckedCreateNestedManyWithoutOrganizationInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutOrganizationInput
   }
@@ -21884,6 +21928,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     owner?: UserUpdateOneRequiredWithoutOwnedOrganizationsNestedInput
     memberships?: OrganizationMemberUpdateManyWithoutOrganizationNestedInput
     auditLogs?: AuditLogUpdateManyWithoutOrganizationNestedInput
@@ -21895,6 +21940,7 @@ export namespace Prisma {
     ownerId?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     memberships?: OrganizationMemberUncheckedUpdateManyWithoutOrganizationNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutOrganizationNestedInput
   }
@@ -22584,6 +22630,7 @@ export namespace Prisma {
     name: string
     createdAt?: Date | string
     updatedAt?: Date | string
+    deletedAt?: Date | string | null
     owner: UserCreateNestedOneWithoutOwnedOrganizationsInput
     memberships?: OrganizationMemberCreateNestedManyWithoutOrganizationInput
     tickets?: TicketCreateNestedManyWithoutOrganizationInput
@@ -22595,6 +22642,7 @@ export namespace Prisma {
     ownerId: string
     createdAt?: Date | string
     updatedAt?: Date | string
+    deletedAt?: Date | string | null
     memberships?: OrganizationMemberUncheckedCreateNestedManyWithoutOrganizationInput
     tickets?: TicketUncheckedCreateNestedManyWithoutOrganizationInput
   }
@@ -22675,6 +22723,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     owner?: UserUpdateOneRequiredWithoutOwnedOrganizationsNestedInput
     memberships?: OrganizationMemberUpdateManyWithoutOrganizationNestedInput
     tickets?: TicketUpdateManyWithoutOrganizationNestedInput
@@ -22686,6 +22735,7 @@ export namespace Prisma {
     ownerId?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     memberships?: OrganizationMemberUncheckedUpdateManyWithoutOrganizationNestedInput
     tickets?: TicketUncheckedUpdateManyWithoutOrganizationNestedInput
   }
@@ -22707,6 +22757,7 @@ export namespace Prisma {
     name: string
     createdAt?: Date | string
     updatedAt?: Date | string
+    deletedAt?: Date | string | null
   }
 
   export type BusinessCreateManyOwnerInput = {
@@ -22850,6 +22901,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     memberships?: OrganizationMemberUpdateManyWithoutOrganizationNestedInput
     tickets?: TicketUpdateManyWithoutOrganizationNestedInput
     auditLogs?: AuditLogUpdateManyWithoutOrganizationNestedInput
@@ -22860,6 +22912,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     memberships?: OrganizationMemberUncheckedUpdateManyWithoutOrganizationNestedInput
     tickets?: TicketUncheckedUpdateManyWithoutOrganizationNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutOrganizationNestedInput
@@ -22870,6 +22923,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   }
 
   export type BusinessUpdateWithoutOwnerInput = {
