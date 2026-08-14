@@ -1,7 +1,7 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma-local';
 import { ROLES } from '../src/common/constants/roles.constant';
 
-const prisma = new PrismaClient();
+const prisma = new (PrismaClient as any)();
 
 async function main() {
   const roles = [

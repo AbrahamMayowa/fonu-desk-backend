@@ -127,7 +127,7 @@ export class AuthService {
     }
 
     // Get default organization if present (for owners, their first owned organization)
-    let defaultOrganizationId = null;
+    let defaultOrganizationId: string | null = null;
     if (user.ownedOrganizations && user.ownedOrganizations.length > 0) {
       defaultOrganizationId = user.ownedOrganizations[0].id;
     } else if (user.memberships && user.memberships.length > 0) {

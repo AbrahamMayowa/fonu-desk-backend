@@ -1,6 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@database/prisma.service';
-import { Prisma, User, Otp } from '@prisma/client';
+import { Prisma, User, Otp } from '@prisma-local';
+
+export type UserWithRelations = Prisma.UserGetPayload<{
+  include: {
+    ownedOrganizations: true;
+    memberships: {
+      include: {
+        role: true;
+        organization: true;
+      };
+    };
+  };
+}>;
 
 @Injectable()
 export class AuthRepository {
@@ -10,7 +22,7 @@ export class AuthRepository {
     return this.prisma.user.create({ data });
   }
 
-  async findUserByEmail(email: string): Promise<User | null> {
+  async findUserByEmail(email: string): Promise<UserWithRelations | null> {
     return this.prisma.user.findUnique({
       where: { email },
       include: {
@@ -25,7 +37,7 @@ export class AuthRepository {
     });
   }
 
-  async findUserById(id: string): Promise<User | null> {
+  async findUserById(id: string): Promise<UserWithRelations | null> {
     return this.prisma.user.findUnique({
       where: { id },
       include: {

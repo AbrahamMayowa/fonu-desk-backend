@@ -1,0 +1,214 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider     = "prisma-client-js"
+  output       = "client"
+  moduleFormat = "cjs"
+}
+
+model User {
+  id        String @id @default(uuid())
+  email     String @unique
+  password  String
+  firstName String
+  lastName  String
+
+  emailVerified Boolean @default(false)
+  isOwner       Boolean @default(false)
+  ownerId       String?
+  owner         User?   @relation("UserToOwner", fields: [ownerId], references: [id])
+  ownedUsers    User[]  @relation("UserToOwner")
+
+  ownedOrganizations Organization[]       @relation("OrganizationOwner")
+  ownedBusinesses    Business[]           @relation("BusinessOwner")
+  memberships        OrganizationMember[]
+
+  createdTickets    Ticket[]           @relation("TicketCreator")
+  assignedTickets   Ticket[]           @relation("TicketAssignee")
+  ticketComments    TicketComment[]
+  ticketAttachments TicketAttachment[]
+  ticketHistories   TicketHistory[]
+  auditLogs         AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Role {
+  id          String               @id @default(uuid())
+  name        String               @unique // e.g., ADMINISTRATOR, SUPPORT_AGENT, CUSTOMER
+  memberships OrganizationMember[]
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+}
+
+model OrganizationMember {
+  id             String  @id @default(uuid())
+  userId         String
+  organizationId String
+  roleId         String
+  businessId     String?
+
+  isActive  Boolean   @default(true)
+  deletedAt DateTime?
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role         Role         @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  business     Business?    @relation(fields: [businessId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, organizationId])
+}
+
+model Organization {
+  id      String @id @default(uuid())
+  name    String
+  ownerId String
+
+  owner       User                 @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  memberships OrganizationMember[]
+  tickets     Ticket[]
+  auditLogs   AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Business {
+  id       String  @id @default(uuid())
+  name     String
+  industry String?
+  ownerId  String
+
+  owner       User                 @relation("BusinessOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  memberships OrganizationMember[]
+  tickets     Ticket[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model Ticket {
+  id          String         @id @default(uuid())
+  title       String
+  description String
+  status      TicketStatus   @default(OPEN)
+  priority    TicketPriority @default(MEDIUM)
+
+  createdById    String
+  assignedToId   String?
+  organizationId String
+  businessId     String?
+
+  createdBy    User         @relation("TicketCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  assignedTo   User?        @relation("TicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  business     Business?    @relation(fields: [businessId], references: [id], onDelete: SetNull)
+
+  comments    TicketComment[]
+  attachments TicketAttachment[]
+  histories   TicketHistory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TicketComment {
+  id         String  @id @default(uuid())
+  content    String
+  isInternal Boolean @default(false)
+  ticketId   String
+  authorId   String
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TicketAttachment {
+  id           String  @id @default(uuid())
+  fileName     String
+  fileUrl      String
+  fileType     String?
+  ticketId     String
+  uploadedById String
+
+  ticket     Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  uploadedBy User   @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+}
+
+model TicketHistory {
+  id           String  @id @default(uuid())
+  fieldChanged String
+  oldValue     String?
+  newValue     String?
+  ticketId     String
+  changedById  String
+
+  ticket    Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  changedBy User   @relation(fields: [changedById], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id             String  @id @default(uuid())
+  action         String
+  entityType     String
+  entityId       String
+  details        Json?
+  actorId        String
+  organizationId String?
+
+  actor        User          @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+}
+
+model Otp {
+  id        String   @id @default(uuid())
+  email     String
+  code      String
+  type      String // e.g., 'VERIFY_EMAIL', 'RESET_PASSWORD'
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
+
+model Invitation {
+  id             String   @id @default(uuid())
+  email          String
+  organizationId String
+  roleId         String
+  businessId     String?
+  token          String   @unique
+  status         String   @default("PENDING") // PENDING, ACCEPTED
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}

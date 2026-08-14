@@ -1,11 +1,24 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@database/prisma.service';
-import { Prisma, User, OrganizationMember, Invitation } from '@prisma/client';
+import { Prisma, User, OrganizationMember, Invitation } from '@prisma-local';
+export type UserWithMemberships = Prisma.UserGetPayload<{
+  include: {
+    memberships: {
+      where: { deletedAt: null };
+      include: {
+        role: true;
+        organization: true;
+        business: true;
+      };
+    };
+  };
+}>;
+
 @Injectable()
 export class UsersRepository {
   constructor(private prisma: PrismaService) { }
 
-  async findUserById(id: string): Promise<User | null> {
+  async findUserById(id: string): Promise<UserWithMemberships | null> {
     return this.prisma.user.findUnique({
       where: { id },
       include: {
