@@ -1,15 +1,18 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
-}
+
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
+
+generator client {
+  provider        = "prisma-client"
+  output          = "client"
+  moduleFormat    = "cjs"
+}
+
 
 model User {
   id        String   @id @default(uuid())
@@ -18,6 +21,7 @@ model User {
   firstName String
   lastName  String
   
+  emailVerified Boolean  @default(false)
   isOwner   Boolean  @default(false)
   ownerId   String?
   owner     User?    @relation("UserToOwner", fields: [ownerId], references: [id])
@@ -52,6 +56,9 @@ model OrganizationMember {
   organizationId String
   roleId         String
   businessId     String?
+
+  isActive       Boolean      @default(true)
+  deletedAt      DateTime?
 
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -184,3 +191,28 @@ model AuditLog {
 
   createdAt      DateTime @default(now())
 }
+
+model Otp {
+  id        String   @id @default(uuid())
+  email     String
+  code      String
+  type      String   // e.g., 'VERIFY_EMAIL', 'RESET_PASSWORD'
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
+
+model Invitation {
+  id             String   @id @default(uuid())
+  email          String
+  organizationId String
+  roleId         String
+  businessId     String?
+  token          String   @unique
+  status         String   @default("PENDING") // PENDING, ACCEPTED
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
