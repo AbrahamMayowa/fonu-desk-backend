@@ -36,4 +36,25 @@ export class OrganizationsRepository {
       data,
     });
   }
+
+  async findUserOrganizations(userId: string) {
+    return this.prisma.organization.findMany({
+      where: {
+        deletedAt: null,
+        OR: [
+          { ownerId: userId },
+          {
+            memberships: {
+              some: {
+                userId,
+                isActive: true,
+                deletedAt: null,
+              },
+            },
+          },
+        ],
+      },
+      orderBy: { name: 'asc' },
+    });
+  }
 }

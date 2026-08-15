@@ -171,4 +171,14 @@ export class OrganizationsService {
       throw new InternalServerErrorException('Failed to update ticket assignment method');
     }
   }
+
+  async findUserOrganizations(userId: string) {
+    try {
+      const organizations = await this.organizationsRepository.findUserOrganizations(userId);
+      return { organizations };
+    } catch (error) {
+      this.logger.error('Failed to fetch user organizations', JSON.stringify({ userId, error: error.message }));
+      throw new InternalServerErrorException('Failed to fetch user organizations');
+    }
+  }
 }

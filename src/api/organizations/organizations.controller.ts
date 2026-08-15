@@ -5,7 +5,7 @@ import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { GetOrganizationsDto } from './dto/get-organizations.dto';
 import { UpdateTicketAssignmentDto } from './dto/update-ticket-assignment.dto';
-import { OrganizationResponseDto, PaginatedOrganizationResponseDto } from './dto/organization-response.dto';
+import { OrganizationResponseDto, PaginatedOrganizationResponseDto, UserOrganizationsResponseDto } from './dto/organization-response.dto';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { ROLES } from '../../common/constants/roles.constant';
@@ -40,6 +40,16 @@ export class OrganizationsController {
     @Query() dto: GetOrganizationsDto,
   ): Promise<PaginatedOrganizationResponseDto> {
     return this.organizationsService.findAll(user.id, dto);
+  }
+
+  @Get('user/me')
+  @Roles(ROLES.OWNER, ROLES.ADMIN, ROLES.SUPPORT, ROLES.CUSTOMER)
+  @ApiOperation({ summary: 'Get all organizations current user belongs to (No pagination)' })
+  @ApiResponse({ status: 200, type: UserOrganizationsResponseDto })
+  async findUserOrganizations(
+    @CurrentUser() user: ActiveUserData,
+  ): Promise<UserOrganizationsResponseDto> {
+    return this.organizationsService.findUserOrganizations(user.id);
   }
 
   @Get(':id')

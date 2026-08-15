@@ -34,3 +34,9 @@ export class PaginatedOrganizationResponseDto {
   @ApiProperty()
   limit: number;
 }
+
+export class UserOrganizationsResponseDto {
+  @ApiProperty({ type: [OrganizationResponseDto] })
+  organizations: OrganizationResponseDto[];
+}
+
