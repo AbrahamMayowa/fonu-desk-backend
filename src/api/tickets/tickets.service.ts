@@ -218,7 +218,7 @@ export class TicketsService {
     try {
       const existing = await this.findOne(id, user, role);
 
-      const ticket = await this.ticketsRepository.update(id, { assignedToId });
+      const ticket = await this.ticketsRepository.update(id, { assignedTo: { connect: { id: assignedToId } } });
 
       await this.ticketsRepository.createHistory({
         fieldChanged: 'assignedToId',
