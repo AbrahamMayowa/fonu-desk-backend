@@ -141,6 +141,7 @@ model Ticket {
   comments       TicketComment[]
   attachments    TicketAttachment[]
   histories      TicketHistory[]
+  notifications  Notification[]
   ticketMutes    TicketMute[]
 
   createdAt      DateTime     @default(now())

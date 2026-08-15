@@ -13,6 +13,8 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { ROLES } from '../../common/constants/roles.constant';
 import type { ActiveUserData } from '../../common/interfaces/active-user-data.interface';
+import { UploadTicketImageDto } from './dto/upload-ticket-image.dto';
+import { UploadImageResponseDto } from './dto/upload-image-response.dto';
 
 @ApiTags('Tickets')
 @ApiBearerAuth()
@@ -20,6 +22,16 @@ import type { ActiveUserData } from '../../common/interfaces/active-user-data.in
 @Controller('tickets')
 export class TicketsController {
   constructor(private readonly ticketsService: TicketsService) {}
+
+  @Post('upload-image')
+  @ApiOperation({ summary: 'Upload an image for a ticket (returns image URL)' })
+  @ApiResponse({ status: 201, type: UploadImageResponseDto })
+  async uploadImage(
+    @CurrentUser() user: ActiveUserData,
+    @Body() dto: UploadTicketImageDto,
+  ): Promise<UploadImageResponseDto> {
+    return this.ticketsService.uploadImage(dto.base64Image);
+  }
 
   @Post()
   @ApiOperation({ summary: 'Create a new ticket' })

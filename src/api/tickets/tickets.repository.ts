@@ -12,6 +12,7 @@ export class TicketsRepository {
       include: {
         createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
         assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
+        attachments: true,
       }
     });
   }

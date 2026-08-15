@@ -10,6 +10,7 @@ import { OrganizationsRepository } from '../organizations/organizations.reposito
 import { NotificationsService } from '../notifications/notifications.service';
 import type { ActiveUserData } from '../../common/interfaces/active-user-data.interface';
 import { ROLES } from '../../common/constants/roles.constant';
+import { uploadBase64Image } from '../../common/client/cloudinary';
 
 @Injectable()
 export class TicketsService {
@@ -34,7 +35,7 @@ export class TicketsService {
         assignedToId = await this.ticketsRepository.findAgentWithFewestTickets(org.id);
       }
 
-      const ticket = await this.ticketsRepository.create({
+      const ticketData: Prisma.TicketUncheckedCreateInput = {
         title: dto.title,
         description: dto.description,
         priority: dto.priority,
@@ -42,7 +43,20 @@ export class TicketsService {
         businessId: dto.businessId,
         createdById: user.id,
         assignedToId,
-      });
+      };
+
+      if (dto.attachment) {
+        ticketData.attachments = {
+          create: [{
+            fileName: dto.attachment.fileName,
+            fileUrl: dto.attachment.fileUrl,
+            fileType: dto.attachment.fileType,
+            uploadedById: user.id,
+          }],
+        };
+      }
+
+      const ticket = await this.ticketsRepository.create(ticketData);
 
       await this.auditLogsService.createLog({
         action: 'CREATE_TICKET',
@@ -50,7 +64,7 @@ export class TicketsService {
         entityId: ticket.id,
         actorId: user.id,
         organizationId: ticket.organizationId,
-        details: { title: ticket.title },
+        details: { title: ticket.title, hasAttachment: !!dto.attachment },
       });
 
       if (assignedToId) {
@@ -374,6 +388,19 @@ export class TicketsService {
         ticket.createdBy.id, ticket.id, 'UPDATED', 'New Comment',
         `A new comment was added to your ticket: ${ticket.title}`, false
       );
+    }
+  }
+
+  async uploadImage(base64Image: string) {
+    try {
+      const result = await uploadBase64Image(base64Image) as any;
+      return {
+        fileUrl: result.secure_url,
+        fileName: result.public_id,
+      };
+    } catch (error) {
+      this.logger.error('Failed to upload image', JSON.stringify({ error: error.message }));
+      throw new InternalServerErrorException('Failed to upload image');
     }
   }
 }
