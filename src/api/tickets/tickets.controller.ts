@@ -119,9 +119,29 @@ export class TicketsController {
   @ApiResponse({ status: 200, description: 'Ticket history retrieved successfully' })
   async getHistory(
     @CurrentUser() user: ActiveUserData,
-    @Param('id') id: string,
+      @Param('id') id: string,
   ) {
     const role = user.roles && user.roles.length > 0 ? user.roles[0] : ROLES.CUSTOMER;
     return this.ticketsService.getHistory(user, id, role);
+  }
+
+  @Post(':id/mute')
+  @ApiOperation({ summary: 'Mute notifications for a ticket' })
+  @ApiResponse({ status: 200, description: 'Ticket muted successfully' })
+  async muteTicket(
+    @CurrentUser() user: ActiveUserData,
+    @Param('id') id: string,
+  ) {
+    return this.ticketsService.muteTicket(user.id, id);
+  }
+
+  @Post(':id/unmute')
+  @ApiOperation({ summary: 'Unmute notifications for a ticket' })
+  @ApiResponse({ status: 200, description: 'Ticket unmuted successfully' })
+  async unmuteTicket(
+    @CurrentUser() user: ActiveUserData,
+    @Param('id') id: string,
+  ) {
+    return this.ticketsService.unmuteTicket(user.id, id);
   }
 }

@@ -54,11 +54,7 @@ export class TicketsService {
       });
 
       if (assignedToId) {
-        await this.notificationsService.createNotification(
-          assignedToId,
-          'New Ticket Assigned',
-          `You have been automatically assigned to ticket: ${ticket.title}`
-        );
+        await this.notifyAssignment(ticket, user.id);
       }
 
       return ticket;
@@ -100,11 +96,7 @@ export class TicketsService {
       });
 
       if (assignedToId) {
-        await this.notificationsService.createNotification(
-          assignedToId,
-          'New Ticket Assigned',
-          `You have been automatically assigned to ticket: ${ticket.title}`
-        );
+        await this.notifyAssignment(ticket, user.id);
       }
 
       return ticket;
@@ -207,6 +199,12 @@ export class TicketsService {
         details: { updatedFields: Object.keys(dto) },
       });
 
+      const updatedFields = Object.keys(dto);
+      const criticalFields = ['status', 'priority'];
+      if (updatedFields.some(field => criticalFields.includes(field))) {
+        await this.notifyUpdate(ticket, updatedFields, user.id);
+      }
+
       return ticket;
     } catch (error) {
       this.logger.error('Failed to update ticket', JSON.stringify({ userId: user.id, id, dto, error: error.message }));
@@ -237,11 +235,7 @@ export class TicketsService {
         details: { assignedToId },
       });
 
-      await this.notificationsService.createNotification(
-        assignedToId,
-        'Ticket Assigned',
-        `You have been manually assigned to ticket: ${ticket.title}`
-      );
+      await this.notifyAssignment(ticket, user.id);
 
       return ticket;
     } catch (error) {
@@ -275,6 +269,8 @@ export class TicketsService {
         organizationId: ticket.organizationId,
       });
 
+      await this.notifyComment(ticket, user.id);
+
       return comment;
     } catch (error) {
       this.logger.error('Failed to add ticket comment', JSON.stringify({ userId: user.id, id, dto, error: error.message }));
@@ -306,6 +302,78 @@ export class TicketsService {
     } catch (error) {
       this.logger.error('Failed to fetch ticket history', JSON.stringify({ userId: user.id, id, error: error.message }));
       throw new InternalServerErrorException('Failed to fetch ticket history');
+    }
+  }
+
+  async muteTicket(userId: string, ticketId: string) {
+    try {
+      await this.ticketsRepository.muteTicket(userId, ticketId);
+      return { message: 'Ticket muted successfully' };
+    } catch (error) {
+      this.logger.error('Failed to mute ticket', JSON.stringify({ userId, ticketId, error: error.message }));
+      throw new InternalServerErrorException('Failed to mute ticket');
+    }
+  }
+
+  async unmuteTicket(userId: string, ticketId: string) {
+    try {
+      await this.ticketsRepository.unmuteTicket(userId, ticketId);
+      return { message: 'Ticket unmuted successfully' };
+    } catch (error) {
+      this.logger.error('Failed to unmute ticket', JSON.stringify({ userId, ticketId, error: error.message }));
+      throw new InternalServerErrorException('Failed to unmute ticket');
+    }
+  }
+
+  private async notifyAssignment(ticket: any, actorId: string) {
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    if (ticket.assignedTo && ticket.assignedTo.id !== actorId) {
+      await this.notificationsService.notifyTicketUpdate(
+        ticket.assignedTo.id, ticket.id, 'ASSIGNED', 'New Ticket Assigned',
+        `You have been assigned to ticket: ${ticket.title}`, true, ticket.assignedTo.email,
+        { name: ticket.assignedTo.firstName, ticketId: ticket.id, ticketTitle: ticket.title, ticketPriority: ticket.priority, ticketStatus: ticket.status, isAgent: true, ticketUrl: `${frontendUrl}/tickets/${ticket.id}` }
+      );
+    }
+    if (ticket.createdBy && ticket.createdBy.id !== actorId) {
+      await this.notificationsService.notifyTicketUpdate(
+        ticket.createdBy.id, ticket.id, 'ASSIGNED', 'Ticket Assigned',
+        `Your ticket has been assigned to a support agent.`, true, ticket.createdBy.email,
+        { name: ticket.createdBy.firstName, ticketId: ticket.id, ticketTitle: ticket.title, ticketPriority: ticket.priority, ticketStatus: ticket.status, isAgent: false, ticketUrl: `${frontendUrl}/tickets/${ticket.id}` }
+      );
+    }
+  }
+
+  private async notifyUserUpdate(ticket: any, user: any, isAgent: boolean, updatedFields: string[]) {
+    if (!user) return;
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    await this.notificationsService.notifyTicketUpdate(
+      user.id, ticket.id, 'UPDATED', 'Ticket Updated',
+      `Ticket ${ticket.title} has been updated.`, true, user.email,
+      { name: user.firstName, ticketId: ticket.id, ticketTitle: ticket.title, ticketPriority: ticket.priority, ticketStatus: ticket.status, updatedFields: updatedFields.join(', '), isAgent, ticketUrl: `${frontendUrl}/tickets/${ticket.id}` }
+    );
+  }
+
+  private async notifyUpdate(ticket: any, updatedFields: string[], actorId: string) {
+    if (ticket.assignedTo && ticket.assignedTo.id !== actorId) {
+      await this.notifyUserUpdate(ticket, ticket.assignedTo, true, updatedFields);
+    }
+    if (ticket.createdBy && ticket.createdBy.id !== actorId) {
+      await this.notifyUserUpdate(ticket, ticket.createdBy, false, updatedFields);
+    }
+  }
+
+  private async notifyComment(ticket: any, authorId: string) {
+    if (ticket.assignedTo && authorId !== ticket.assignedTo.id) {
+      await this.notificationsService.notifyTicketUpdate(
+        ticket.assignedTo.id, ticket.id, 'UPDATED', 'New Comment',
+        `A new comment was added to ticket: ${ticket.title}`, false
+      );
+    }
+    if (ticket.createdBy && authorId !== ticket.createdBy.id) {
+      await this.notificationsService.notifyTicketUpdate(
+        ticket.createdBy.id, ticket.id, 'UPDATED', 'New Comment',
+        `A new comment was added to your ticket: ${ticket.title}`, false
+      );
     }
   }
 }

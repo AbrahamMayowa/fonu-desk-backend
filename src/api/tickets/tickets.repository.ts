@@ -129,4 +129,18 @@ export class TicketsRepository {
 
     return leastBusyAgentId;
   }
+
+  async muteTicket(userId: string, ticketId: string) {
+    return this.prisma.ticketMute.upsert({
+      where: { userId_ticketId: { userId, ticketId } },
+      create: { userId, ticketId },
+      update: {},
+    });
+  }
+
+  async unmuteTicket(userId: string, ticketId: string) {
+    return this.prisma.ticketMute.delete({
+      where: { userId_ticketId: { userId, ticketId } },
+    }).catch(() => null);
+  }
 }

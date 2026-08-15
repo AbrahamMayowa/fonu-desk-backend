@@ -30,4 +30,16 @@ export class NotificationsRepository {
       data,
     });
   }
+
+  async isTicketMuted(userId: string, ticketId: string): Promise<boolean> {
+    const mute = await this.prisma.ticketMute.findUnique({
+      where: {
+        userId_ticketId: {
+          userId,
+          ticketId,
+        },
+      },
+    });
+    return !!mute;
+  }
 }

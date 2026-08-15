@@ -1,14 +1,14 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { NotificationsRepository } from './notifications.repository';
 import { EmailService } from '../../email/email.service';
-import { CustomLogger } from '../../common/logger/logger.service';
 
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
+
   constructor(
     private readonly notificationsRepository: NotificationsRepository,
     private readonly emailService: EmailService,
-    private readonly logger: CustomLogger
   ) {}
 
   async getMyNotifications(userId: string, page = 1, limit = 10) {
@@ -65,6 +65,45 @@ export class NotificationsService {
     } catch (error) {
       this.logger.error('Create notification failed', JSON.stringify({ userId, title, error: error.message }));
       throw new InternalServerErrorException('An error occurred while creating notification');
+    }
+  }
+
+  async notifyTicketUpdate(
+    userId: string, 
+    ticketId: string, 
+    type: 'ASSIGNED' | 'UPDATED', 
+    title: string, 
+    content: string, 
+    isCritical: boolean,
+    email?: string,
+    emailData?: any
+  ) {
+    try {
+      const isMuted = await this.notificationsRepository.isTicketMuted(userId, ticketId);
+      if (isMuted) return null;
+
+      const notification = await this.notificationsRepository.create({
+        userId,
+        ticketId,
+        type,
+        title,
+        content,
+      });
+
+      if (isCritical && email && emailData) {
+        const sendPromise = type === 'ASSIGNED' 
+          ? this.emailService.sendTicketAssignedEmail(email, emailData)
+          : this.emailService.sendTicketUpdatedEmail(email, emailData);
+
+        await sendPromise.catch((e) => {
+          this.logger.error('Critical notification email send failed', JSON.stringify({ userId, email, error: e.message }));
+        });
+      }
+
+      return notification;
+    } catch (error) {
+      this.logger.error('Create ticket notification failed', JSON.stringify({ userId, ticketId, error: error.message }));
+      return null;
     }
   }
 }

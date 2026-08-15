@@ -13,6 +13,7 @@ import { AuditLogsModule } from './api/audit-logs/audit-logs.module';
 import { OrganizationsModule } from './api/organizations/organizations.module';
 import { NotificationsModule } from './api/notifications/notifications.module';
 import { TicketsModule } from './api/tickets/tickets.module';
+import { DashboardsModule } from './api/dashboards/dashboards.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { TicketsModule } from './api/tickets/tickets.module';
     OrganizationsModule,
     NotificationsModule,
     TicketsModule,
+    DashboardsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
