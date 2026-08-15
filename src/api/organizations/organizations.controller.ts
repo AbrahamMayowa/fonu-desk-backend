@@ -4,6 +4,7 @@ import { OrganizationsService } from './organizations.service';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { GetOrganizationsDto } from './dto/get-organizations.dto';
+import { UpdateTicketAssignmentDto } from './dto/update-ticket-assignment.dto';
 import { OrganizationResponseDto, PaginatedOrganizationResponseDto } from './dto/organization-response.dto';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -70,5 +71,16 @@ export class OrganizationsController {
     @Param('id') id: string,
   ): Promise<OrganizationResponseDto> {
     return this.organizationsService.remove(user.id, id);
+  }
+
+  @Patch(':id/ticket-assignment')
+  @ApiOperation({ summary: 'Update ticket assignment method (Owner only)' })
+  @ApiResponse({ status: 200, type: OrganizationResponseDto })
+  async updateTicketAssignment(
+    @CurrentUser() user: ActiveUserData,
+    @Param('id') id: string,
+    @Body() dto: UpdateTicketAssignmentDto,
+  ): Promise<OrganizationResponseDto> {
+    return this.organizationsService.updateTicketAssignment(user.id, id, dto);
   }
 }

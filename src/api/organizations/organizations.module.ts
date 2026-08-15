@@ -9,6 +9,6 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
   imports: [PrismaModule, AuditLogsModule],
   controllers: [OrganizationsController],
   providers: [OrganizationsService, OrganizationsRepository],
-  exports: [OrganizationsService],
+  exports: [OrganizationsService, OrganizationsRepository],
 })
 export class OrganizationsModule {}

@@ -11,6 +11,8 @@ import { MiddlewareConsumer, NestModule, RequestMethod } from '@nestjs/common';
 import { LoggerModule } from './common/logger/logger.module';
 import { AuditLogsModule } from './api/audit-logs/audit-logs.module';
 import { OrganizationsModule } from './api/organizations/organizations.module';
+import { NotificationsModule } from './api/notifications/notifications.module';
+import { TicketsModule } from './api/tickets/tickets.module';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { OrganizationsModule } from './api/organizations/organizations.module';
     LoggerModule,
     AuditLogsModule,
     OrganizationsModule,
+    NotificationsModule,
+    TicketsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

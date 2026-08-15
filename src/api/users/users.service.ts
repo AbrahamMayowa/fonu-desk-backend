@@ -44,6 +44,13 @@ export class UsersService {
     return this.usersRepository.findUsersByBusiness(currentUser.organizationId, businessId);
   }
 
+  async getCustomers(currentUser: ActiveUserData, businessId?: string) {
+    if (!currentUser.isOwner && !currentUser.roles.includes(ROLES.ADMIN) && !currentUser.roles.includes(ROLES.SUPPORT)) {
+      throw new UnauthorizedException('Only authorized staff can view customers');
+    }
+    return this.usersRepository.findCustomers(currentUser.organizationId, businessId);
+  }
+
   async inviteUser(currentUser: ActiveUserData, dto: InviteUserDto) {
     // Check if user is already a member
     const existingUser = await this.usersRepository.findUserByEmail(dto.email);

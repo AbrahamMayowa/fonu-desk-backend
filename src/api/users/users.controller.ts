@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Delete, Patch, Body, Param, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import { Controller, Get, Post, Delete, Patch, Body, Param, Query, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { InviteUserDto } from './dto/invite-user.dto';
 import { AcceptInviteDto } from './dto/accept-invite.dto';
@@ -27,6 +27,18 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'User details retrieved successfully', type: UserDetailsResponseDto })
   async getMe(@CurrentUser() user: ActiveUserData): Promise<UserDetailsResponseDto> {
     return this.usersService.getUserDetails(user.id) as unknown as UserDetailsResponseDto;
+  }
+
+  @Get('customers')
+  @UseGuards(RolesGuard)
+  @Roles(ROLES.OWNER, ROLES.ADMIN, ROLES.SUPPORT)
+  @ApiOperation({ summary: 'Get list of customers (optionally filtered by businessId)' })
+  @ApiResponse({ status: 200, description: 'List of customers retrieved successfully', type: [OrganizationMemberResponseDto] })
+  async getCustomers(
+    @CurrentUser() user: ActiveUserData,
+    @Query('businessId') businessId?: string,
+  ): Promise<OrganizationMemberResponseDto[]> {
+    return this.usersService.getCustomers(user, businessId) as unknown as OrganizationMemberResponseDto[];
   }
 
   @Get('organization')

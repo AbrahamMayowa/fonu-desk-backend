@@ -3,6 +3,7 @@ import { Prisma } from '@prisma-pg';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { GetOrganizationsDto } from './dto/get-organizations.dto';
+import { UpdateTicketAssignmentDto } from './dto/update-ticket-assignment.dto';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { OrganizationsRepository } from './organizations.repository';
 
@@ -42,9 +43,7 @@ export class OrganizationsService {
       return org;
     } catch (error) {
       this.logger.error('Failed to create organization', JSON.stringify({ ownerId, dto, error: error.message }));
-      if (error instanceof ConflictException) {
-        throw error;
-      }
+      this.logger.error('Failed to create organization', JSON.stringify({ ownerId, dto, error: error.message }));
       throw new InternalServerErrorException('Failed to create organization');
     }
   }
@@ -88,9 +87,7 @@ export class OrganizationsService {
       return org;
     } catch (error) {
       this.logger.error('Failed to fetch organization', JSON.stringify({ ownerId, id, error: error.message }));
-      if (error instanceof NotFoundException || error instanceof UnauthorizedException) {
-        throw error;
-      }
+      this.logger.error('Failed to fetch organization', JSON.stringify({ ownerId, id, error: error.message }));
       throw new InternalServerErrorException('Failed to fetch organization');
     }
   }
@@ -123,9 +120,7 @@ export class OrganizationsService {
       return org;
     } catch (error) {
       this.logger.error('Failed to update organization', JSON.stringify({ ownerId, id, dto, error: error.message }));
-      if (error instanceof ConflictException || error instanceof NotFoundException || error instanceof UnauthorizedException) {
-        throw error;
-      }
+      this.logger.error('Failed to update organization', JSON.stringify({ ownerId, id, dto, error: error.message }));
       throw new InternalServerErrorException('Failed to update organization');
     }
   }
@@ -146,10 +141,34 @@ export class OrganizationsService {
       return org;
     } catch (error) {
       this.logger.error('Failed to delete organization', JSON.stringify({ ownerId, id, error: error.message }));
-      if (error instanceof NotFoundException || error instanceof UnauthorizedException) {
-        throw error;
-      }
+      this.logger.error('Failed to delete organization', JSON.stringify({ ownerId, id, error: error.message }));
       throw new InternalServerErrorException('Failed to delete organization');
+    }
+  }
+
+  async updateTicketAssignment(ownerId: string, id: string, dto: UpdateTicketAssignmentDto) {
+    try {
+      await this.findOne(ownerId, id); // check existence and ownership
+
+      const org = await this.organizationsRepository.update(
+        { id },
+        { ticketAssignMethod: dto.method }
+      );
+
+      await this.auditLogsService.createLog({
+        action: 'UPDATE_TICKET_ASSIGNMENT_METHOD',
+        entityType: 'Organization',
+        entityId: org.id,
+        actorId: ownerId,
+        organizationId: org.id,
+        details: { method: dto.method },
+      });
+
+      return org;
+    } catch (error) {
+      this.logger.error('Failed to update ticket assignment method', JSON.stringify({ ownerId, id, dto, error: error.message }));
+      this.logger.error('Failed to update ticket assignment method', JSON.stringify({ ownerId, id, dto, error: error.message }));
+      throw new InternalServerErrorException('Failed to update ticket assignment method');
     }
   }
 }

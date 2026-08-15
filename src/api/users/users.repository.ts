@@ -82,6 +82,36 @@ export class UsersRepository {
     });
   }
 
+  async findCustomers(organizationId: string, businessId?: string) {
+    const where: Prisma.OrganizationMemberWhereInput = {
+      organizationId,
+      deletedAt: null,
+      role: {
+        name: 'CUSTOMER'
+      }
+    };
+
+    if (businessId) {
+      where.businessId = businessId;
+    }
+
+    return this.prisma.organizationMember.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          }
+        },
+        role: true,
+        business: true,
+      }
+    });
+  }
+
   async getMember(organizationId: string, userId: string) {
     return this.prisma.organizationMember.findUnique({
       where: {

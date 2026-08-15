@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { TicketAssignMethod } from '@prisma-pg';
 
 export class OrganizationResponseDto {
   @ApiProperty()
@@ -9,6 +10,9 @@ export class OrganizationResponseDto {
 
   @ApiProperty()
   ownerId: string;
+
+  @ApiProperty({ enum: TicketAssignMethod })
+  ticketAssignMethod: TicketAssignMethod;
 
   @ApiProperty()
   createdAt: Date;

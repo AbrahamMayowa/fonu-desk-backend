@@ -37,6 +37,7 @@ model User {
   ticketAttachments TicketAttachment[]
   ticketHistories   TicketHistory[]
   auditLogs         AuditLog[]
+  notifications     Notification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -72,6 +73,7 @@ model Organization {
   id        String   @id @default(uuid())
   name      String
   ownerId   String
+  ticketAssignMethod TicketAssignMethod @default(MANUAL)
   
   owner       User                 @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   memberships OrganizationMember[]
@@ -111,6 +113,11 @@ enum TicketPriority {
   MEDIUM
   HIGH
   URGENT
+}
+
+enum TicketAssignMethod {
+  AUTO
+  MANUAL
 }
 
 model Ticket {
@@ -219,3 +226,13 @@ model Invitation {
   updatedAt      DateTime @updatedAt
 }
 
+model Notification {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  isRead    Boolean  @default(false)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
