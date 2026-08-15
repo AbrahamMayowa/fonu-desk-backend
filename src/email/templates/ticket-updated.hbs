@@ -1,0 +1,25 @@
+<h2>Ticket Update Notification</h2>
+
+<p>Hello <strong>{{name}}</strong>,</p>
+
+<p>There has been a critical update to Ticket <strong>#{{ticketId}}</strong> ({{ticketTitle}}).</p>
+
+<div class="info-box">
+  <div class="info-row" style="margin-bottom: 12px;">
+    <span class="info-label" style="width: auto;">Updated Fields:</span><br/>
+    <span style="color: #475569; margin-top: 4px; display: inline-block;">{{updatedFields}}</span>
+  </div>
+  <hr style="border: 0; border-top: 1px solid #E2E8F0; margin: 16px 0;" />
+  <div class="info-row">
+    <span class="info-label">Priority:</span> 
+    <span class="badge priority-{{ticketPriority}}">{{ticketPriority}}</span>
+  </div>
+  <div class="info-row">
+    <span class="info-label">Status:</span> 
+    <span class="badge status-{{ticketStatus}}">{{ticketStatus}}</span>
+  </div>
+</div>
+
+<div style="text-align: center;">
+  <a href="{{ticketUrl}}" class="button">View Ticket</a>
+</div>

@@ -3,6 +3,8 @@ dist/
 .env
 REQUIREMENTS.md
 
-prisma/client
+prisma/client/
 
 FRONTEND_REQUIREMENTS.md
+
+

@@ -1,0 +1,26 @@
+<h2>Ticket Assignment Notification</h2>
+
+<p>Hello <strong>{{name}}</strong>,</p>
+
+<p>Ticket <strong>#{{ticketId}}</strong> ({{ticketTitle}}) has been assigned.</p>
+
+{{#if isAgent}}
+  <p>You have been assigned to handle this ticket.</p>
+{{else}}
+  <p>This ticket has been assigned to a support agent.</p>
+{{/if}}
+
+<div class="info-box">
+  <div class="info-row">
+    <span class="info-label">Priority:</span> 
+    <span class="badge priority-{{ticketPriority}}">{{ticketPriority}}</span>
+  </div>
+  <div class="info-row">
+    <span class="info-label">Status:</span> 
+    <span class="badge status-{{ticketStatus}}">{{ticketStatus}}</span>
+  </div>
+</div>
+
+<div style="text-align: center;">
+  <a href="{{ticketUrl}}" class="button">View Ticket</a>
+</div>
