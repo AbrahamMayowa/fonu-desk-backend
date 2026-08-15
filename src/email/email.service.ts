@@ -13,7 +13,14 @@ export class EmailService {
   private getTemplate(templateName: string): handlebars.TemplateDelegate {
     if (!this.templates[templateName]) {
       const templatePath = path.join(process.cwd(), 'src', 'email', 'templates', `${templateName}.hbs`);
-      const templateContent = fs.readFileSync(templatePath, 'utf8');
+      let templateContent = fs.readFileSync(templatePath, 'utf8');
+
+      const layoutPath = path.join(process.cwd(), 'src', 'email', 'templates', 'layout.hbs');
+      if (fs.existsSync(layoutPath) && templateName !== 'layout') {
+        const layoutContent = fs.readFileSync(layoutPath, 'utf8');
+        templateContent = layoutContent.replace('{{{body}}}', templateContent);
+      }
+
       this.templates[templateName] = handlebars.compile(templateContent);
     }
     return this.templates[templateName];

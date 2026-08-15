@@ -1,43 +1,26 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px; }
-    .header { background-color: #f4f4f4; padding: 10px; text-align: center; border-radius: 5px 5px 0 0; }
-    .content { padding: 20px; }
-    .footer { font-size: 12px; color: #777; text-align: center; margin-top: 20px; border-top: 1px solid #eaeaea; padding-top: 10px; }
-    .button { display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 3px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h2>Ticket Assignment Notification</h2>
-    </div>
-    <div class="content">
-      <p>Hello {{name}},</p>
-      
-      <p>Ticket <strong>#{{ticketId}}</strong> ({{ticketTitle}}) has been assigned.</p>
-      
-      {{#if isAgent}}
-        <p>You have been assigned to handle this ticket.</p>
-      {{else}}
-        <p>This ticket has been assigned to a support agent.</p>
-      {{/if}}
+<h2>Ticket Assignment Notification</h2>
 
-      <p>
-        <strong>Priority:</strong> {{ticketPriority}}<br>
-        <strong>Status:</strong> {{ticketStatus}}
-      </p>
-      
-      <p>
-        <a href="{{ticketUrl}}" class="button">View Ticket</a>
-      </p>
-    </div>
-    <div class="footer">
-      <p>This is an automated message. Please do not reply directly to this email.</p>
-    </div>
+<p>Hello <strong>{{name}}</strong>,</p>
+
+<p>Ticket <strong>#{{ticketId}}</strong> ({{ticketTitle}}) has been assigned.</p>
+
+{{#if isAgent}}
+  <p>You have been assigned to handle this ticket.</p>
+{{else}}
+  <p>This ticket has been assigned to a support agent.</p>
+{{/if}}
+
+<div class="info-box">
+  <div class="info-row">
+    <span class="info-label">Priority:</span> 
+    <span class="badge priority-{{ticketPriority}}">{{ticketPriority}}</span>
   </div>
-</body>
-</html>
+  <div class="info-row">
+    <span class="info-label">Status:</span> 
+    <span class="badge status-{{ticketStatus}}">{{ticketStatus}}</span>
+  </div>
+</div>
+
+<div style="text-align: center;">
+  <a href="{{ticketUrl}}" class="button">View Ticket</a>
+</div>

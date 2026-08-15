@@ -1,41 +1,25 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px; }
-    .header { background-color: #f4f4f4; padding: 10px; text-align: center; border-radius: 5px 5px 0 0; }
-    .content { padding: 20px; }
-    .footer { font-size: 12px; color: #777; text-align: center; margin-top: 20px; border-top: 1px solid #eaeaea; padding-top: 10px; }
-    .button { display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 3px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h2>Ticket Update Notification</h2>
-    </div>
-    <div class="content">
-      <p>Hello {{name}},</p>
-      
-      <p>There has been a critical update to Ticket <strong>#{{ticketId}}</strong> ({{ticketTitle}}).</p>
-      
-      <p>
-        <strong>Updated Fields:</strong> {{updatedFields}}
-      </p>
+<h2>Ticket Update Notification</h2>
 
-      <p>
-        <strong>Priority:</strong> {{ticketPriority}}<br>
-        <strong>Status:</strong> {{ticketStatus}}
-      </p>
-      
-      <p>
-        <a href="{{ticketUrl}}" class="button">View Ticket</a>
-      </p>
-    </div>
-    <div class="footer">
-      <p>This is an automated message. Please do not reply directly to this email.</p>
-    </div>
+<p>Hello <strong>{{name}}</strong>,</p>
+
+<p>There has been a critical update to Ticket <strong>#{{ticketId}}</strong> ({{ticketTitle}}).</p>
+
+<div class="info-box">
+  <div class="info-row" style="margin-bottom: 12px;">
+    <span class="info-label" style="width: auto;">Updated Fields:</span><br/>
+    <span style="color: #475569; margin-top: 4px; display: inline-block;">{{updatedFields}}</span>
   </div>
-</body>
-</html>
+  <hr style="border: 0; border-top: 1px solid #E2E8F0; margin: 16px 0;" />
+  <div class="info-row">
+    <span class="info-label">Priority:</span> 
+    <span class="badge priority-{{ticketPriority}}">{{ticketPriority}}</span>
+  </div>
+  <div class="info-row">
+    <span class="info-label">Status:</span> 
+    <span class="badge status-{{ticketStatus}}">{{ticketStatus}}</span>
+  </div>
+</div>
+
+<div style="text-align: center;">
+  <a href="{{ticketUrl}}" class="button">View Ticket</a>
+</div>
