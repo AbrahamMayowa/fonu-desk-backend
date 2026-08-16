@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, UnauthorizedException, InternalServerErrorException, ConflictException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException, InternalServerErrorException, ConflictException, Logger, HttpException } from '@nestjs/common';
 import { Prisma } from '@prisma-pg';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
@@ -44,6 +44,9 @@ export class OrganizationsService {
     } catch (error) {
       this.logger.error('Failed to create organization', JSON.stringify({ ownerId, dto, error: error.message }));
       this.logger.error('Failed to create organization', JSON.stringify({ ownerId, dto, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to create organization');
     }
   }
@@ -71,6 +74,9 @@ export class OrganizationsService {
       };
     } catch (error) {
       this.logger.error('Failed to fetch organizations', JSON.stringify({ ownerId, dto, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to fetch organizations');
     }
   }
@@ -88,6 +94,9 @@ export class OrganizationsService {
     } catch (error) {
       this.logger.error('Failed to fetch organization', JSON.stringify({ ownerId, id, error: error.message }));
       this.logger.error('Failed to fetch organization', JSON.stringify({ ownerId, id, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to fetch organization');
     }
   }
@@ -121,6 +130,9 @@ export class OrganizationsService {
     } catch (error) {
       this.logger.error('Failed to update organization', JSON.stringify({ ownerId, id, dto, error: error.message }));
       this.logger.error('Failed to update organization', JSON.stringify({ ownerId, id, dto, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to update organization');
     }
   }
@@ -142,6 +154,9 @@ export class OrganizationsService {
     } catch (error) {
       this.logger.error('Failed to delete organization', JSON.stringify({ ownerId, id, error: error.message }));
       this.logger.error('Failed to delete organization', JSON.stringify({ ownerId, id, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to delete organization');
     }
   }
@@ -168,6 +183,9 @@ export class OrganizationsService {
     } catch (error) {
       this.logger.error('Failed to update ticket assignment method', JSON.stringify({ ownerId, id, dto, error: error.message }));
       this.logger.error('Failed to update ticket assignment method', JSON.stringify({ ownerId, id, dto, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to update ticket assignment method');
     }
   }
@@ -178,6 +196,9 @@ export class OrganizationsService {
       return { organizations };
     } catch (error) {
       this.logger.error('Failed to fetch user organizations', JSON.stringify({ userId, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to fetch user organizations');
     }
   }

@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { AuthUserResponseDto } from '../../auth/dto/responses.dto';
 
 export class UserSummaryDto {
   @ApiProperty()
@@ -88,4 +89,55 @@ export class InviteUserResponseDto {
 export class MessageResponseDto {
   @ApiProperty()
   message: string;
+}
+
+export class InvitationResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  email: string;
+
+  @ApiProperty()
+  organizationId: string;
+
+  @ApiProperty()
+  roleId: string;
+
+  @ApiProperty({ nullable: true })
+  businessId: string | null;
+
+  @ApiProperty()
+  status: string;
+
+  @ApiProperty()
+  expiresAt: Date;
+
+  @ApiProperty()
+  createdAt: Date;
+
+  @ApiProperty()
+  updatedAt: Date;
+
+  @ApiProperty({ type: RoleDto, nullable: true })
+  role?: RoleDto;
+}
+
+export class PaginatedInvitationResponseDto {
+  @ApiProperty({ type: [InvitationResponseDto] })
+  data: InvitationResponseDto[];
+
+  @ApiProperty()
+  total: number;
+}
+
+export class AcceptInviteResponseDto {
+  @ApiProperty()
+  message: string;
+
+  @ApiProperty()
+  accessToken: string;
+
+  @ApiProperty({ type: AuthUserResponseDto })
+  user: AuthUserResponseDto;
 }

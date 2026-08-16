@@ -29,6 +29,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Verify email with OTP' })
   @ApiResponse({ status: 200, description: 'Email successfully verified.', type: MessageResponseDto })
   @ApiResponse({ status: 400, description: 'Invalid or expired OTP.' })
+  @ApiResponse({ status: 429, description: 'Too many attempts. Rate limit exceeded.' })
   async verifyEmail(@Body() dto: VerifyOtpDto): Promise<MessageResponseDto> {
     return this.authService.verifyEmail(dto);
   }
@@ -37,6 +38,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Resend email verification OTP' })
   @ApiResponse({ status: 200, description: 'If the email is registered, a new OTP has been sent.', type: MessageResponseDto })
+  @ApiResponse({ status: 429, description: 'Too many attempts. Rate limit exceeded.' })
   async resendVerificationOtp(@Body() dto: ResendOtpDto): Promise<MessageResponseDto> {
     return this.authService.resendVerificationOtp(dto);
   }
@@ -63,6 +65,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Change password using a reset OTP' })
   @ApiResponse({ status: 200, description: 'Password successfully changed.', type: MessageResponseDto })
   @ApiResponse({ status: 400, description: 'Invalid or expired reset code.' })
+  @ApiResponse({ status: 429, description: 'Too many attempts. Rate limit exceeded.' })
   async changePassword(@Body() dto: ChangePasswordDto): Promise<MessageResponseDto> {
     return this.authService.changePassword(dto);
   }
@@ -77,6 +80,6 @@ export class AuthController {
     @Body() dto: SwitchOrganizationDto,
     @CurrentUser() user: any
   ): Promise<SwitchOrganizationResponseDto> {
-    return this.authService.switchOrganization(user.sub, dto.organizationId);
+    return this.authService.switchOrganization(user.id || user.sub, dto.organizationId);
   }
 }

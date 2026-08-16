@@ -56,7 +56,7 @@ export class NotificationsService {
       });
 
       if (email) {
-        await this.emailService.sendMail(email, title, content).catch((e) => {
+        this.emailService.sendMail(email, title, content).catch((e) => {
           this.logger.error('Notification email send failed', JSON.stringify({ userId, email, error: e.message }));
         });
       }

@@ -69,3 +69,26 @@ export class PaginatedTicketResponseDto {
   @ApiProperty()
   limit: number;
 }
+
+export class TicketAttachmentResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  fileName: string;
+
+  @ApiProperty()
+  fileUrl: string;
+
+  @ApiProperty({ nullable: true })
+  fileType: string | null;
+
+  @ApiProperty()
+  ticketId: string;
+
+  @ApiProperty()
+  uploadedById: string;
+
+  @ApiProperty()
+  createdAt: Date;
+}

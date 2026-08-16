@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException, ConflictException, BadRequestException, Logger, ForbiddenException, InternalServerErrorException } from '@nestjs/common';
 import { UsersRepository } from './users.repository';
 import { InviteUserDto } from './dto/invite-user.dto';
 import { AcceptInviteDto } from './dto/accept-invite.dto';
@@ -7,12 +7,19 @@ import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { ROLES } from '../../common/constants/roles.constant';
 import type { ActiveUserData } from '../../common/interfaces/active-user-data.interface';
+import { GetInvitesDto } from './dto/get-invites.dto';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     private readonly usersRepository: UsersRepository,
     private readonly emailService: EmailService,
+    private readonly auditLogsService: AuditLogsService,
+    private readonly jwtService: JwtService,
   ) {}
 
   async getUserDetails(userId: string) {
@@ -52,38 +59,78 @@ export class UsersService {
   }
 
   async inviteUser(currentUser: ActiveUserData, dto: InviteUserDto) {
-    // Check if user is already a member
-    const existingUser = await this.usersRepository.findUserByEmail(dto.email);
-    if (existingUser) {
-      const existingMember = await this.usersRepository.getMember(currentUser.organizationId, existingUser.id);
-      if (existingMember && !existingMember.deletedAt) {
-        throw new ConflictException('User is already a member of this organization');
+    try {
+      // Check if user is already a member
+      const existingUser = await this.usersRepository.findUserByEmail(dto.email);
+      if (existingUser) {
+        const existingMember = await this.usersRepository.getMember(currentUser.organizationId, existingUser.id);
+        if (existingMember && !existingMember.deletedAt) {
+          throw new ConflictException('User is already a member of this organization');
+        }
       }
+
+      // Check role existence
+      const role = await this.usersRepository.findRoleById(dto.roleId);
+      if (!role) {
+        throw new NotFoundException('Role not found');
+      }
+
+      // Check business validation for customers
+      if (role.name === ROLES.CUSTOMER) {
+        if (!dto.businessId) {
+          throw new BadRequestException('When inviting a customer, you must select the business the customer belongs to');
+        }
+      }
+
+      // Check business existence if provided
+      if (dto.businessId) {
+        const business = await this.usersRepository.findBusinessById(dto.businessId);
+        if (!business) {
+          throw new NotFoundException('Business not found');
+        }
+      }
+
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiration
+
+      const invitation = await this.usersRepository.createInvitation({
+        email: dto.email,
+        organizationId: currentUser.organizationId,
+        roleId: dto.roleId,
+        businessId: dto.businessId,
+        token,
+        expiresAt,
+      });
+
+      const frontendUrl = process.env.FRONTEND_URL;
+      const inviteLink = `${frontendUrl}/accept-invite?token=${token}`;
+
+      this.emailService.sendUserInviteEmail(dto.email, { inviteLink });
+
+      await this.auditLogsService.createLog({
+        action: 'INVITE_USER',
+        entityType: 'Invitation',
+        entityId: invitation.id,
+        actorId: currentUser.id,
+        organizationId: currentUser.organizationId,
+        details: { email: dto.email, roleId: dto.roleId, businessId: dto.businessId },
+      });
+
+      this.logger.log('User invitation created and sent', JSON.stringify({ organizationId: currentUser.organizationId, actorId: currentUser.id, invitationId: invitation.id }));
+
+      return { message: 'Invitation sent successfully', invitationId: invitation.id };
+    } catch (error) {
+      this.logger.error('Failed to invite user', JSON.stringify({ organizationId: currentUser.organizationId, actorId: currentUser.id, email: dto.email, error: error.message }));
+      if (
+        error instanceof ConflictException ||
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to invite user');
     }
-
-    const token = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiration
-
-    const invitation = await this.usersRepository.createInvitation({
-      email: dto.email,
-      organizationId: currentUser.organizationId,
-      roleId: dto.roleId,
-      businessId: dto.businessId,
-      token,
-      expiresAt,
-    });
-
-    // In a real app, this would be a proper URL to the frontend
-    const inviteLink = `http://localhost:3000/accept-invite?token=${token}`;
-
-    await this.emailService.sendMail(
-      dto.email,
-      'You have been invited to join an organization',
-      `<p>You have been invited. Click <a href="${inviteLink}">here</a> to accept and set up your account.</p>`,
-    );
-
-    return { message: 'Invitation sent successfully', invitationId: invitation.id };
   }
 
   async acceptInvite(dto: AcceptInviteDto) {
@@ -100,7 +147,7 @@ export class UsersService {
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
-    return this.usersRepository.executeTransaction(async (tx) => {
+    const { user, roleName } = await this.usersRepository.executeTransaction(async (tx) => {
       // 1. Check if user already exists (maybe they signed up independently)
       let user = await tx.user.findUnique({ where: { email: invitation.email } });
       
@@ -113,20 +160,47 @@ export class UsersService {
             firstName: dto.firstName,
             lastName: dto.lastName,
             emailVerified: true, // Auto-verified via invite email
+            defaultOrganizationId: invitation.organizationId,
           }
+        });
+      } else if (!user.defaultOrganizationId) {
+        user = await tx.user.update({
+          where: { id: user.id },
+          data: { defaultOrganizationId: invitation.organizationId },
         });
       }
 
-      // 3. Create organization member (scoping the role to this org)
-      await tx.organizationMember.create({
-        data: {
-          userId: user.id,
-          organizationId: invitation.organizationId,
-          roleId: invitation.roleId,
-          businessId: invitation.businessId,
-          isActive: true,
+      // 3. Create or update organization member (scoping the role to this org)
+      const existingMember = await tx.organizationMember.findUnique({
+        where: {
+          userId_organizationId: {
+            userId: user.id,
+            organizationId: invitation.organizationId,
+          }
         }
       });
+
+      if (!existingMember) {
+        await tx.organizationMember.create({
+          data: {
+            userId: user.id,
+            organizationId: invitation.organizationId,
+            roleId: invitation.roleId,
+            businessId: invitation.businessId,
+            isActive: true,
+          }
+        });
+      } else if (existingMember.deletedAt || !existingMember.isActive) {
+        await tx.organizationMember.update({
+          where: { id: existingMember.id },
+          data: {
+            roleId: invitation.roleId,
+            businessId: invitation.businessId || existingMember.businessId,
+            isActive: true,
+            deletedAt: null,
+          }
+        });
+      }
 
       // 4. Mark invitation as accepted
       await tx.invitation.update({
@@ -134,8 +208,45 @@ export class UsersService {
         data: { status: 'ACCEPTED' }
       });
 
-      return { message: 'Invitation accepted successfully' };
+      const role = await tx.role.findUnique({ where: { id: invitation.roleId } });
+
+      return { user, roleName: role?.name || null };
     });
+
+    const roles: string[] = [];
+    if (user.isOwner) {
+      roles.push(ROLES.OWNER);
+    }
+    if (roleName) {
+      roles.push(roleName);
+    }
+
+    const defaultOrgId = user.defaultOrganizationId || invitation.organizationId;
+
+    const payload = {
+      id: user.id,
+      email: user.email,
+      roles,
+      isOwner: user.isOwner,
+      organizationId: invitation.organizationId,
+    };
+
+    const accessToken = await this.jwtService.signAsync(payload);
+
+    this.logger.log('Invitation accepted successfully', JSON.stringify({ userId: user.id, organizationId: invitation.organizationId }));
+
+    return {
+      message: 'Invitation accepted successfully',
+      accessToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        isOwner: user.isOwner,
+        defaultOrganizationId: defaultOrgId,
+      },
+    };
   }
 
   async removeUser(currentUser: ActiveUserData, targetUserId: string) {
@@ -166,5 +277,87 @@ export class UsersService {
 
     await this.usersRepository.updateMemberRole(currentUser.organizationId, targetUserId, roleId);
     return { message: 'User role updated successfully' };
+  }
+
+  async getInvitations(currentUser: ActiveUserData, dto: GetInvitesDto) {
+    try {
+      const { page = 1, limit = 10 } = dto;
+      const skip = (page - 1) * limit;
+
+      const [data, total] = await Promise.all([
+        this.usersRepository.findInvitationsByOrganization(currentUser.organizationId, skip, limit),
+        this.usersRepository.countInvitationsByOrganization(currentUser.organizationId),
+      ]);
+
+      this.logger.log('Retrieved invitations list', JSON.stringify({ organizationId: currentUser.organizationId, actorId: currentUser.id, page, limit }));
+
+      return { data, total };
+    } catch (error) {
+      this.logger.error('Failed to get invitations list', JSON.stringify({ organizationId: currentUser.organizationId, actorId: currentUser.id, error: error.message }));
+      throw new InternalServerErrorException('Failed to retrieve invitations list');
+    }
+  }
+
+  async resendInvite(currentUser: ActiveUserData, id: string) {
+    try {
+      const invitation = await this.usersRepository.findInvitationById(id);
+      if (!invitation || invitation.organizationId !== currentUser.organizationId) {
+        throw new NotFoundException('Invitation not found');
+      }
+
+      if (invitation.status === 'ACCEPTED') {
+        throw new ConflictException('Invitation has already been accepted');
+      }
+
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiration
+
+      const updatedInvitation = await this.usersRepository.updateInvitation(id, {
+        token,
+        expiresAt,
+        status: 'PENDING',
+      });
+
+      const frontendUrl = process.env.FRONTEND_URL;
+      const inviteLink = `${frontendUrl}/accept-invite?token=${token}`;
+
+      this.emailService.sendUserInviteEmail(invitation.email, { inviteLink });
+
+      await this.auditLogsService.createLog({
+        action: 'RESEND_INVITATION',
+        entityType: 'Invitation',
+        entityId: id,
+        actorId: currentUser.id,
+        organizationId: currentUser.organizationId,
+        details: { email: invitation.email, roleId: invitation.roleId, businessId: invitation.businessId },
+      });
+
+      this.logger.log('Resent user invitation', JSON.stringify({ organizationId: currentUser.organizationId, actorId: currentUser.id, invitationId: id }));
+
+      return {
+        message: 'Invitation resent successfully',
+        invitationId: updatedInvitation.id,
+      };
+    } catch (error) {
+      this.logger.error('Failed to resend invitation', JSON.stringify({ organizationId: currentUser.organizationId, actorId: currentUser.id, invitationId: id, error: error.message }));
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ConflictException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to resend invitation');
+    }
+  }
+
+  async getAllRoles(currentUser: ActiveUserData) {
+    try {
+      const roles = await this.usersRepository.findAllRoles();
+      return roles;
+    } catch (error) {
+      this.logger.error('Failed to get roles list', JSON.stringify({ organizationId: currentUser.organizationId, actorId: currentUser.id, error: error.message }));
+      throw new InternalServerErrorException('Failed to retrieve roles list');
+    }
   }
 }

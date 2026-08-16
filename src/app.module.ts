@@ -14,12 +14,19 @@ import { OrganizationsModule } from './api/organizations/organizations.module';
 import { NotificationsModule } from './api/notifications/notifications.module';
 import { TicketsModule } from './api/tickets/tickets.module';
 import { DashboardsModule } from './api/dashboards/dashboards.module';
+import { BusinessesModule } from './api/businesses/businesses.module';
+
+import { APP_PIPE } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
+
+import { RedisModule } from './common/redis/redis.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     EmailModule,
+    RedisModule,
     AuthModule,
     UsersModule,
     LoggerModule,
@@ -28,21 +35,38 @@ import { DashboardsModule } from './api/dashboards/dashboards.module';
     NotificationsModule,
     TicketsModule,
     DashboardsModule,
+    BusinessesModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_PIPE,
+      useValue: new ValidationPipe({
+        whitelist: true,
+        transform: true,
+      }),
+    },
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(AuthenticationMiddleware)
       .exclude(
+        { path: '/auth/signup', method: RequestMethod.POST },
         { path: 'auth/signup', method: RequestMethod.POST },
+        { path: '/auth/login', method: RequestMethod.POST },
         { path: 'auth/login', method: RequestMethod.POST },
+        { path: '/auth/verify-email', method: RequestMethod.POST },
         { path: 'auth/verify-email', method: RequestMethod.POST },
+        { path: '/auth/resend-verification-otp', method: RequestMethod.POST },
         { path: 'auth/resend-verification-otp', method: RequestMethod.POST },
+        { path: '/auth/forgot-password', method: RequestMethod.POST },
         { path: 'auth/forgot-password', method: RequestMethod.POST },
+        { path: '/auth/change-password', method: RequestMethod.POST },
         { path: 'auth/change-password', method: RequestMethod.POST },
+        { path: '/users/accept-invite', method: RequestMethod.POST },
         { path: 'users/accept-invite', method: RequestMethod.POST }
       )
       .forRoutes('*');

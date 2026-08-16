@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException, NotFoundException, Logger, ForbiddenException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException, Logger, ForbiddenException, HttpException, BadRequestException } from '@nestjs/common';
 import { TicketsRepository } from './tickets.repository';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { CreateTicketOnBehalfDto } from './dto/create-ticket-on-behalf.dto';
@@ -45,14 +45,22 @@ export class TicketsService {
         assignedToId,
       };
 
+      const attachmentList: Array<{ fileName: string; fileUrl: string; fileType?: string }> = [];
+      if (dto.attachments && Array.isArray(dto.attachments)) {
+        attachmentList.push(...dto.attachments);
+      }
       if (dto.attachment) {
+        attachmentList.push(dto.attachment);
+      }
+
+      if (attachmentList.length > 0) {
         ticketData.attachments = {
-          create: [{
-            fileName: dto.attachment.fileName,
-            fileUrl: dto.attachment.fileUrl,
-            fileType: dto.attachment.fileType,
+          create: attachmentList.map((att) => ({
+            fileName: att.fileName,
+            fileUrl: att.fileUrl,
+            fileType: att.fileType,
             uploadedById: user.id,
-          }],
+          })),
         };
       }
 
@@ -64,7 +72,7 @@ export class TicketsService {
         entityId: ticket.id,
         actorId: user.id,
         organizationId: ticket.organizationId,
-        details: { title: ticket.title, hasAttachment: !!dto.attachment },
+        details: { title: ticket.title, attachmentCount: attachmentList.length },
       });
 
       if (assignedToId) {
@@ -74,6 +82,9 @@ export class TicketsService {
       return ticket;
     } catch (error) {
       this.logger.error('Failed to create ticket', JSON.stringify({ userId: user.id, dto, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to create ticket');
     }
   }
@@ -85,12 +96,18 @@ export class TicketsService {
         throw new NotFoundException('Organization not found');
       }
 
+      // Verify that the customer exists and is a customer in the active organization
+      const customer = await this.ticketsRepository.findCustomerMember(user.organizationId, dto.customerId);
+      if (!customer) {
+        throw new NotFoundException('Customer not found in this organization');
+      }
+
       let assignedToId: string | null = null;
       if (org.ticketAssignMethod === 'AUTO') {
         assignedToId = await this.ticketsRepository.findAgentWithFewestTickets(org.id);
       }
 
-      const ticket = await this.ticketsRepository.create({
+      const ticketData: Prisma.TicketUncheckedCreateInput = {
         title: dto.title,
         description: dto.description,
         priority: dto.priority,
@@ -98,7 +115,28 @@ export class TicketsService {
         businessId: dto.businessId,
         createdById: dto.customerId,
         assignedToId,
-      });
+      };
+
+      const attachmentList: Array<{ fileName: string; fileUrl: string; fileType?: string }> = [];
+      if (dto.attachments && Array.isArray(dto.attachments)) {
+        attachmentList.push(...dto.attachments);
+      }
+      if (dto.attachment) {
+        attachmentList.push(dto.attachment);
+      }
+
+      if (attachmentList.length > 0) {
+        ticketData.attachments = {
+          create: attachmentList.map((att) => ({
+            fileName: att.fileName,
+            fileUrl: att.fileUrl,
+            fileType: att.fileType,
+            uploadedById: user.id,
+          })),
+        };
+      }
+
+      const ticket = await this.ticketsRepository.create(ticketData);
 
       await this.auditLogsService.createLog({
         action: 'CREATE_TICKET_ON_BEHALF',
@@ -106,7 +144,7 @@ export class TicketsService {
         entityId: ticket.id,
         actorId: user.id,
         organizationId: ticket.organizationId,
-        details: { title: ticket.title, onBehalfOf: dto.customerId },
+        details: { title: ticket.title, onBehalfOf: dto.customerId, attachmentCount: attachmentList.length },
       });
 
       if (assignedToId) {
@@ -116,6 +154,9 @@ export class TicketsService {
       return ticket;
     } catch (error) {
       this.logger.error('Failed to create ticket on behalf', JSON.stringify({ userId: user.id, dto, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to create ticket on behalf');
     }
   }
@@ -131,6 +172,7 @@ export class TicketsService {
         ...(priority && { priority }),
         ...(search && {
           OR: [
+            { id: { contains: search, mode: 'insensitive' } },
             { title: { contains: search, mode: 'insensitive' } },
             { description: { contains: search, mode: 'insensitive' } },
           ],
@@ -153,6 +195,9 @@ export class TicketsService {
       };
     } catch (error) {
       this.logger.error('Failed to fetch tickets', JSON.stringify({ userId: user.id, dto, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to fetch tickets');
     }
   }
@@ -179,6 +224,9 @@ export class TicketsService {
       return ticket;
     } catch (error) {
       this.logger.error('Failed to fetch ticket', JSON.stringify({ id, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to fetch ticket');
     }
   }
@@ -222,6 +270,9 @@ export class TicketsService {
       return ticket;
     } catch (error) {
       this.logger.error('Failed to update ticket', JSON.stringify({ userId: user.id, id, dto, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to update ticket');
     }
   }
@@ -254,6 +305,9 @@ export class TicketsService {
       return ticket;
     } catch (error) {
       this.logger.error('Failed to assign ticket', JSON.stringify({ userId: user.id, id, assignedToId, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to assign ticket');
     }
   }
@@ -288,6 +342,9 @@ export class TicketsService {
       return comment;
     } catch (error) {
       this.logger.error('Failed to add ticket comment', JSON.stringify({ userId: user.id, id, dto, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to add ticket comment');
     }
   }
@@ -300,7 +357,23 @@ export class TicketsService {
       return this.ticketsRepository.getComments(id, includeInternal);
     } catch (error) {
       this.logger.error('Failed to fetch ticket comments', JSON.stringify({ userId: user.id, id, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to fetch ticket comments');
+    }
+  }
+
+  async getAttachments(user: ActiveUserData, id: string, role: string) {
+    try {
+      const ticket = await this.findOne(id, user, role);
+      return this.ticketsRepository.getAttachments(ticket.id);
+    } catch (error) {
+      this.logger.error('Failed to fetch ticket attachments', JSON.stringify({ userId: user.id, id, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to fetch ticket attachments');
     }
   }
 
@@ -315,6 +388,9 @@ export class TicketsService {
       return this.ticketsRepository.getHistory(id);
     } catch (error) {
       this.logger.error('Failed to fetch ticket history', JSON.stringify({ userId: user.id, id, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to fetch ticket history');
     }
   }
@@ -340,7 +416,7 @@ export class TicketsService {
   }
 
   private async notifyAssignment(ticket: any, actorId: string) {
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const frontendUrl = process.env.FRONTEND_URL;
     if (ticket.assignedTo && ticket.assignedTo.id !== actorId) {
       await this.notificationsService.notifyTicketUpdate(
         ticket.assignedTo.id, ticket.id, 'ASSIGNED', 'New Ticket Assigned',
@@ -359,7 +435,7 @@ export class TicketsService {
 
   private async notifyUserUpdate(ticket: any, user: any, isAgent: boolean, updatedFields: string[]) {
     if (!user) return;
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const frontendUrl = process.env.FRONTEND_URL;
     await this.notificationsService.notifyTicketUpdate(
       user.id, ticket.id, 'UPDATED', 'Ticket Updated',
       `Ticket ${ticket.title} has been updated.`, true, user.email,
@@ -393,12 +469,27 @@ export class TicketsService {
 
   async uploadImage(base64Image: string) {
     try {
+      if (!base64Image) {
+        throw new BadRequestException('Image data is required');
+      }
+
+      const base64Data = base64Image.replace(/^data:image\/\w+;base64,/, '');
+      const sizeInBytes = Buffer.from(base64Data, 'base64').length;
+      const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+
+      if (sizeInBytes > MAX_SIZE_BYTES) {
+        throw new BadRequestException('File size exceeds the maximum allowed limit of 5MB');
+      }
+
       const result = await uploadBase64Image(base64Image) as any;
       return {
         fileUrl: result.secure_url,
         fileName: result.public_id,
       };
     } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       this.logger.error('Failed to upload image', JSON.stringify({ error: error.message }));
       throw new InternalServerErrorException('Failed to upload image');
     }

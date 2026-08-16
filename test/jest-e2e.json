@@ -5,5 +5,11 @@
   "testRegex": ".e2e-spec.ts$",
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "moduleNameMapper": {
+    "^@database/(.*)$": "<rootDir>/../src/database/$1",
+    "^@database$": "<rootDir>/../src/database",
+    "^@prisma-pg$": "<rootDir>/../prisma/client/client",
+    "^(\\.\\.?/.*)\\.js$": "$1"
   }
 }

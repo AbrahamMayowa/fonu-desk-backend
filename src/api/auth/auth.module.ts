@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthRepository } from './auth.repository';
@@ -10,10 +11,14 @@ import { EmailModule } from '../../email/email.module';
   imports: [
     PrismaModule,
     EmailModule,
-    JwtModule.register({
-      global: true, // Making it global so AuthMiddleware can use it easily without cyclic dependencies or complex setups
-      secret: process.env.JWT_SECRET || 'super-secret-key-for-dev',
-      signOptions: { expiresIn: '1d' },
+    JwtModule.registerAsync({
+      global: true,
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET') || process.env.JWT_SECRET,
+        signOptions: { expiresIn: '1d' },
+      }),
     }),
   ],
   controllers: [AuthController],

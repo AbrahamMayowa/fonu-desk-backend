@@ -7,7 +7,7 @@ import { UpdateTicketDto } from './dto/update-ticket.dto';
 import { CreateTicketCommentDto } from './dto/create-ticket-comment.dto';
 import { GetTicketsDto } from './dto/get-tickets.dto';
 import { AssignTicketDto } from './dto/assign-ticket.dto';
-import { TicketResponseDto, PaginatedTicketResponseDto } from './dto/ticket-response.dto';
+import { TicketResponseDto, PaginatedTicketResponseDto, TicketAttachmentResponseDto } from './dto/ticket-response.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -123,6 +123,17 @@ export class TicketsController {
   ) {
     const role = user.roles && user.roles.length > 0 ? user.roles[0] : ROLES.CUSTOMER;
     return this.ticketsService.getComments(user, id, role);
+  }
+
+  @Get(':id/attachments')
+  @ApiOperation({ summary: 'Get all attachments for a ticket' })
+  @ApiResponse({ status: 200, description: 'Ticket attachments retrieved successfully', type: [TicketAttachmentResponseDto] })
+  async getAttachments(
+    @CurrentUser() user: ActiveUserData,
+    @Param('id') id: string,
+  ) {
+    const role = user.roles && user.roles.length > 0 ? user.roles[0] : ROLES.CUSTOMER;
+    return this.ticketsService.getAttachments(user, id, role);
   }
 
   @Get(':id/history')
