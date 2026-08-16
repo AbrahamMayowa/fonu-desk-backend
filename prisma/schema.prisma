@@ -80,6 +80,7 @@ model Organization {
   owner       User                 @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   memberships OrganizationMember[]
   tickets     Ticket[]
+  businesses  Business[]
   auditLogs   AuditLog[]
 
   createdAt DateTime @default(now())
@@ -90,14 +91,16 @@ model Organization {
 }
 
 model Business {
-  id        String   @id @default(uuid())
-  name      String
-  industry  String?
-  ownerId   String
+  id             String   @id @default(uuid())
+  name           String
+  industry       String?
+  ownerId        String
+  organizationId String
 
-  owner       User                 @relation("BusinessOwner", fields: [ownerId], references: [id], onDelete: Restrict)
-  memberships OrganizationMember[]
-  tickets     Ticket[]
+  owner        User                 @relation("BusinessOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  memberships  OrganizationMember[]
+  tickets      Ticket[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

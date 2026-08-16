@@ -14,6 +14,7 @@ import { OrganizationsModule } from './api/organizations/organizations.module';
 import { NotificationsModule } from './api/notifications/notifications.module';
 import { TicketsModule } from './api/tickets/tickets.module';
 import { DashboardsModule } from './api/dashboards/dashboards.module';
+import { BusinessesModule } from './api/businesses/businesses.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { DashboardsModule } from './api/dashboards/dashboards.module';
     NotificationsModule,
     TicketsModule,
     DashboardsModule,
+    BusinessesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
