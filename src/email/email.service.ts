@@ -38,6 +38,12 @@ export class EmailService {
     await this.sendMail(to, 'Ticket Update Notification', html);
   }
 
+  async sendUserInviteEmail(to: string, data: { inviteLink: string }) {
+    const template = this.getTemplate('user-invite');
+    const html = template(data);
+    await this.sendMail(to, 'You have been invited to join an organization', html);
+  }
+
   async sendMail(to: string, subject: string, html: string) {
     await this.mailerService.sendMail({
       to,

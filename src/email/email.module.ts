@@ -12,14 +12,14 @@ import { EmailService } from './email.service';
         transport: {
           host: configService.get<string>('SMTP_HOST'),
           port: configService.get<number>('SMTP_PORT'),
-          secure: configService.get<boolean>('SMTP_SECURE') || false,
+          secure: configService.get<boolean>('SMTP_SECURE'),
           auth: {
             user: configService.get<string>('SMTP_USER'),
             pass: configService.get<string>('SMTP_PASSWORD'),
           },
         },
         defaults: {
-          from: `"No Reply" <${configService.get<string>('SMTP_FROM_EMAIL', 'noreply@example.com')}>`,
+          from: `"No Reply" <${configService.get<string>('SMTP_FROM_EMAIL')}>`,
         },
       }),
     }),

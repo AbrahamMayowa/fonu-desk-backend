@@ -12,7 +12,7 @@ import { EmailModule } from '../../email/email.module';
     EmailModule,
     JwtModule.register({
       global: true, // Making it global so AuthMiddleware can use it easily without cyclic dependencies or complex setups
-      secret: process.env.JWT_SECRET || 'super-secret-key-for-dev',
+      secret: process.env.JWT_SECRET,
       signOptions: { expiresIn: '1d' },
     }),
   ],

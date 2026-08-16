@@ -89,3 +89,40 @@ export class MessageResponseDto {
   @ApiProperty()
   message: string;
 }
+
+export class InvitationResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  email: string;
+
+  @ApiProperty()
+  organizationId: string;
+
+  @ApiProperty()
+  roleId: string;
+
+  @ApiProperty({ nullable: true })
+  businessId: string | null;
+
+  @ApiProperty()
+  status: string;
+
+  @ApiProperty()
+  expiresAt: Date;
+
+  @ApiProperty()
+  createdAt: Date;
+
+  @ApiProperty()
+  updatedAt: Date;
+}
+
+export class PaginatedInvitationResponseDto {
+  @ApiProperty({ type: [InvitationResponseDto] })
+  data: InvitationResponseDto[];
+
+  @ApiProperty()
+  total: number;
+}

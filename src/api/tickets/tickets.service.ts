@@ -85,6 +85,12 @@ export class TicketsService {
         throw new NotFoundException('Organization not found');
       }
 
+      // Verify that the customer exists and is a customer in the active organization
+      const customer = await this.ticketsRepository.findCustomerMember(user.organizationId, dto.customerId);
+      if (!customer) {
+        throw new NotFoundException('Customer not found in this organization');
+      }
+
       let assignedToId: string | null = null;
       if (org.ticketAssignMethod === 'AUTO') {
         assignedToId = await this.ticketsRepository.findAgentWithFewestTickets(org.id);
@@ -340,7 +346,7 @@ export class TicketsService {
   }
 
   private async notifyAssignment(ticket: any, actorId: string) {
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const frontendUrl = process.env.FRONTEND_URL;
     if (ticket.assignedTo && ticket.assignedTo.id !== actorId) {
       await this.notificationsService.notifyTicketUpdate(
         ticket.assignedTo.id, ticket.id, 'ASSIGNED', 'New Ticket Assigned',
@@ -359,7 +365,7 @@ export class TicketsService {
 
   private async notifyUserUpdate(ticket: any, user: any, isAgent: boolean, updatedFields: string[]) {
     if (!user) return;
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const frontendUrl = process.env.FRONTEND_URL;
     await this.notificationsService.notifyTicketUpdate(
       user.id, ticket.id, 'UPDATED', 'Ticket Updated',
       `Ticket ${ticket.title} has been updated.`, true, user.email,

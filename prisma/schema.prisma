@@ -47,6 +47,7 @@ model User {
 model Role {
   id          String   @id @default(uuid())
   name        String   @unique // e.g., ADMINISTRATOR, SUPPORT_AGENT, CUSTOMER
+  description String?
   memberships OrganizationMember[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

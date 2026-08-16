@@ -1,6 +1,10 @@
 import { ROLES } from '../src/common/constants/roles.constant';
 import { PrismaClient } from '@prisma-pg';
-const prisma = new (PrismaClient as any)();
+import { PrismaPg } from '@prisma/adapter-pg';
+
+const connectionString = process.env.DATABASE_URL;
+const adapter = new PrismaPg({ connectionString } as any);
+const prisma = new PrismaClient({ adapter } as any);
 
 async function main() {
   const roles = [

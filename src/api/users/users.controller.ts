@@ -4,11 +4,14 @@ import { UsersService } from './users.service';
 import { InviteUserDto } from './dto/invite-user.dto';
 import { AcceptInviteDto } from './dto/accept-invite.dto';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
+import { GetInvitesDto } from './dto/get-invites.dto';
 import { 
   UserDetailsResponseDto, 
   OrganizationMemberResponseDto, 
   InviteUserResponseDto, 
-  MessageResponseDto 
+  MessageResponseDto,
+  InvitationResponseDto,
+  PaginatedInvitationResponseDto
 } from './dto/responses.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -141,5 +144,34 @@ export class UsersController {
     @Body() dto: UpdateMemberRoleDto
   ): Promise<MessageResponseDto> {
     return this.usersService.reassignRole(user, targetUserId, dto.roleId);
+  }
+
+  @Get('invites')
+  @UseGuards(RolesGuard)
+  @Roles(ROLES.OWNER, ROLES.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get all invitations for the active organization' })
+  @ApiResponse({ status: 200, description: 'List of invitations retrieved successfully', type: PaginatedInvitationResponseDto })
+  async getInvitations(
+    @CurrentUser() user: ActiveUserData,
+    @Query() dto: GetInvitesDto,
+  ): Promise<PaginatedInvitationResponseDto> {
+    return this.usersService.getInvitations(user, dto) as unknown as PaginatedInvitationResponseDto;
+  }
+
+  @Post('invites/:id/resend')
+  @UseGuards(RolesGuard)
+  @Roles(ROLES.OWNER, ROLES.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resend an invitation' })
+  @ApiParam({ name: 'id', type: 'string', description: 'Invitation ID' })
+  @ApiResponse({ status: 200, description: 'Invitation resent successfully', type: InviteUserResponseDto })
+  @ApiResponse({ status: 404, description: 'Invitation not found' })
+  @ApiResponse({ status: 409, description: 'Invitation already accepted' })
+  async resendInvite(
+    @CurrentUser() user: ActiveUserData,
+    @Param('id') id: string,
+  ): Promise<InviteUserResponseDto> {
+    return this.usersService.resendInvite(user, id);
   }
 }

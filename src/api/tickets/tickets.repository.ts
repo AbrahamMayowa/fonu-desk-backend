@@ -131,6 +131,22 @@ export class TicketsRepository {
     return leastBusyAgentId;
   }
 
+  async findCustomerMember(organizationId: string, userId: string) {
+    return this.prisma.organizationMember.findFirst({
+      where: {
+        organizationId,
+        userId,
+        deletedAt: null,
+        role: {
+          name: 'CUSTOMER',
+        },
+      },
+      include: {
+        role: true,
+      },
+    });
+  }
+
   async muteTicket(userId: string, ticketId: string) {
     return this.prisma.ticketMute.upsert({
       where: { userId_ticketId: { userId, ticketId } },

@@ -188,6 +188,40 @@ export class UsersRepository {
     return this.prisma.$transaction(fn);
   }
 
+  async findRoleById(id: string) {
+    return this.prisma.role.findUnique({
+      where: { id },
+    });
+  }
+
+  async findInvitationsByOrganization(organizationId: string, skip: number, take: number) {
+    return this.prisma.invitation.findMany({
+      where: { organizationId },
+      skip,
+      take,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async countInvitationsByOrganization(organizationId: string) {
+    return this.prisma.invitation.count({
+      where: { organizationId },
+    });
+  }
+
+  async findInvitationById(id: string) {
+    return this.prisma.invitation.findUnique({
+      where: { id },
+    });
+  }
+
+  async updateInvitation(id: string, data: Prisma.InvitationUpdateInput) {
+    return this.prisma.invitation.update({
+      where: { id },
+      data,
+    });
+  }
+
   async findOrganizationById(id: string) {
     return this.prisma.organization.findUnique({
       where: { id },
