@@ -166,6 +166,19 @@ describe('TicketsService', () => {
         10
       );
     });
+    it('should omit email of assignedTo agent for customer role', async () => {
+      const mockTicket = {
+        id: 't1',
+        title: 'Issue',
+        assignedTo: { id: 'agent1', firstName: 'Jane', lastName: 'Doe', email: 'jane@agent.com' },
+      };
+      ticketsRepository.findAndCount.mockResolvedValue([[mockTicket as any], 1]);
+
+      const res = await ticketsService.findAll(activeUser, ROLES.CUSTOMER, {});
+
+      expect(res.data[0].assignedTo).toEqual({ id: 'agent1', firstName: 'Jane', lastName: 'Doe' });
+      expect(res.data[0].assignedTo).not.toHaveProperty('email');
+    });
   });
 
   describe('findOne', () => {
@@ -179,6 +192,36 @@ describe('TicketsService', () => {
       ticketsRepository.findOne.mockResolvedValue({ id: 'ticket123', organizationId: 'org123', createdById: 'otherUser' } as any);
 
       await expect(ticketsService.findOne('ticket123', activeUser, ROLES.CUSTOMER)).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should omit email of assignedTo agent when requested by a customer', async () => {
+      const mockTicket = {
+        id: 'ticket123',
+        organizationId: 'org123',
+        createdById: 'user123',
+        assignedTo: { id: 'agent1', firstName: 'Jane', lastName: 'Doe', email: 'jane@agent.com' },
+      };
+      ticketsRepository.findOne.mockResolvedValue(mockTicket as any);
+
+      const result = await ticketsService.findOne('ticket123', activeUser, ROLES.CUSTOMER);
+
+      expect(result.assignedTo).toEqual({ id: 'agent1', firstName: 'Jane', lastName: 'Doe' });
+      expect(result.assignedTo).not.toHaveProperty('email');
+    });
+
+    it('should include email of assignedTo agent when requested by a support agent or admin', async () => {
+      const mockTicket = {
+        id: 'ticket123',
+        organizationId: 'org123',
+        createdById: 'user123',
+        assignedToId: 'user123',
+        assignedTo: { id: 'user123', firstName: 'Jane', lastName: 'Doe', email: 'jane@agent.com' },
+      };
+      ticketsRepository.findOne.mockResolvedValue(mockTicket as any);
+
+      const result = await ticketsService.findOne('ticket123', activeUser, ROLES.SUPPORT);
+
+      expect(result.assignedTo).toHaveProperty('email', 'jane@agent.com');
     });
   });
 

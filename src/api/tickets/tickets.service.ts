@@ -79,7 +79,8 @@ export class TicketsService {
         await this.notifyAssignment(ticket, user.id);
       }
 
-      return ticket;
+      const userRole = user.roles && user.roles.length > 0 ? user.roles[0] : ROLES.CUSTOMER;
+      return this.sanitizeTicketForCustomer(ticket, userRole);
     } catch (error) {
       this.logger.error('Failed to create ticket', JSON.stringify({ userId: user.id, dto, error: error.message }));
       if (error instanceof HttpException) {
@@ -151,7 +152,8 @@ export class TicketsService {
         await this.notifyAssignment(ticket, user.id);
       }
 
-      return ticket;
+      const userRole = user.roles && user.roles.length > 0 ? user.roles[0] : ROLES.CUSTOMER;
+      return this.sanitizeTicketForCustomer(ticket, userRole);
     } catch (error) {
       this.logger.error('Failed to create ticket on behalf', JSON.stringify({ userId: user.id, dto, error: error.message }));
       if (error instanceof HttpException) {
@@ -187,8 +189,10 @@ export class TicketsService {
 
       const [data, total] = await this.ticketsRepository.findAndCount(where, skip, limit);
 
+      const sanitizedData = data.map((t) => this.sanitizeTicketForCustomer(t, role));
+
       return {
-        data,
+        data: sanitizedData,
         total,
         page,
         limit,
@@ -221,7 +225,7 @@ export class TicketsService {
         throw new ForbiddenException('You can only view tickets assigned to you');
       }
 
-      return ticket;
+      return this.sanitizeTicketForCustomer(ticket, role);
     } catch (error) {
       this.logger.error('Failed to fetch ticket', JSON.stringify({ id, error: error.message }));
       if (error instanceof HttpException) {
@@ -267,7 +271,7 @@ export class TicketsService {
         await this.notifyUpdate(ticket, updatedFields, user.id);
       }
 
-      return ticket;
+      return this.sanitizeTicketForCustomer(ticket, role);
     } catch (error) {
       this.logger.error('Failed to update ticket', JSON.stringify({ userId: user.id, id, dto, error: error.message }));
       if (error instanceof HttpException) {
@@ -302,7 +306,7 @@ export class TicketsService {
 
       await this.notifyAssignment(ticket, user.id);
 
-      return ticket;
+      return this.sanitizeTicketForCustomer(ticket, role);
     } catch (error) {
       this.logger.error('Failed to assign ticket', JSON.stringify({ userId: user.id, id, assignedToId, error: error.message }));
       if (error instanceof HttpException) {
@@ -493,5 +497,21 @@ export class TicketsService {
       this.logger.error('Failed to upload image', JSON.stringify({ error: error.message }));
       throw new InternalServerErrorException('Failed to upload image');
     }
+  }
+
+  private sanitizeTicketForCustomer(ticket: any, role: string) {
+    if (!ticket || role !== ROLES.CUSTOMER) {
+      return ticket;
+    }
+
+    if (ticket.assignedTo) {
+      const { email, ...assignedToWithoutEmail } = ticket.assignedTo;
+      return {
+        ...ticket,
+        assignedTo: assignedToWithoutEmail,
+      };
+    }
+
+    return ticket;
   }
 }

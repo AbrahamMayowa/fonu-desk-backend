@@ -4,6 +4,7 @@ import { AuthRepository } from './auth.repository';
 import { EmailService } from '../../email/email.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConflictException, UnauthorizedException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { RateLimiterService } from '../../common/redis/rate-limiter.service';
 import * as bcrypt from 'bcrypt';
 
 jest.mock('bcrypt');
@@ -41,6 +42,10 @@ describe('AuthService', () => {
     signAsync: jest.fn(),
   };
 
+  const mockRateLimiterService = {
+    checkRateLimit: jest.fn().mockResolvedValue(undefined),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -48,6 +53,7 @@ describe('AuthService', () => {
         { provide: AuthRepository, useValue: mockAuthRepository },
         { provide: EmailService, useValue: mockEmailService },
         { provide: JwtService, useValue: mockJwtService },
+        { provide: RateLimiterService, useValue: mockRateLimiterService },
       ],
     }).compile();
 

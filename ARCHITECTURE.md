@@ -1,191 +1,113 @@
-# Fonu Desk Backend - System Architecture
+# Fonu Desk - Product & System Architecture (C4 Level 1 & Level 2 Container Views)
 
-This document describes the architectural design, component layers, data flows, security scoping, rate limiting mechanisms, and infrastructure integrations of the Fonu Desk Backend API application.
+This document provides a Product-Owner (PO) level architectural overview of the Fonu Desk Backend application. It maps business capabilities, user journeys, domain boundaries, security perimeters, third-party integrations, and operational constraints to system components.
 
 ---
 
-## 1. High-Level Architecture Diagram
+## 1. High-Level Product Architecture Diagram
 
-The backend application follows a modular monolith structure utilizing NestJS. Requests are filtered through a pipeline of middlewares and guards, processed by controllers, coordinated by business services, and saved to the database via database repositories using the Prisma ORM.
+The C4 Level 2 Container View visually outlines how user personas interact with core backend feature domains, database stores, security perimeters, and third-party vendors:
+
+![Fonu Desk Product & System Architecture](docs/po_architecture_diagram.png)
+
+---
+
+## 2. User Personas & System Entry Points
+
+| User Persona | Entry Point | Auth & Security Boundaries | Core Business Capabilities |
+|---|---|---|---|
+| **Organization Owner (Admin)** | Next.js Web App | JWT Bearer Token, `OWNER` Role Guard, Tenant Scoped (`organizationId`) | Full organization settings, invitation management, ticket assignment configuration (`AUTO` vs `MANUAL`), B2B Customer Business onboarding, system audit logs, admin dashboard analytics. |
+| **Support Agent** | Next.js Web App | JWT Bearer Token, `SUPPORT` Role Guard, Assigned Queue Scoping | View active workload queue, claim unassigned tickets, update ticket status/priority, write internal staff comments, track ticket update history. |
+| **B2B End Customer** | Next.js Web App | JWT Bearer Token, `CUSTOMER` Role Guard, Creator Scoped (`createdById`) | Submit support tickets with base64 attachments (up to 10MB), view ticket status updates (with sanitized agent privacy details - no agent emails exposed), post public thread comments. |
+
+---
+
+## 3. Core Business Domains & Bounded Contexts
+
+The monolith codebase (`src/api/`) is structured into four bounded business domains:
 
 ```mermaid
 graph TD
-    %% Clients
-    Frontend[Next.js Frontend Client]
-    
-    %% API gateway / Controller entrypoint
-    subgraph NestJS Backend Application
-        Gateway[HTTP Controller Layer]
-        
-        %% Middleware, Guards & Security
-        AuthMid[Authentication Middleware]
-        RoleGuard[Roles Guard]
-        RateLimiter[Rate Limiter Service]
-        
-        %% Services & Repositories
-        subgraph Business Logic & DB Layer
-            AuthService[Auth Service]
-            AuthRepo[Auth Repository]
-            
-            TicketService[Tickets Service]
-            TicketRepo[Tickets Repository]
-            
-            OrgService[Organizations Service]
-            OrgRepo[Organizations Repository]
-            
-            UserService[Users Service]
-            UserRepo[Users Repository]
-
-            BizService[Businesses Service]
-            BizRepo[Businesses Repository]
-            
-            AuditService[AuditLogs Service]
-            AuditRepo[AuditLogs Repository]
-            
-            NotifService[Notifications Service]
-            NotifRepo[Notifications Repository]
-            
-            DashService[Dashboards Service]
-        end
-    end
-    
-    %% External systems & Cache Layer
-    subgraph Databases & External Integrations
-        Database[(PostgreSQL Database)]
-        RedisStore[(Redis / In-Memory Store)]
-        Cloudinary[Cloudinary Image Storage]
-        Mailtrap[SMTP Mail Service]
+    subgraph Identity & Access Domain
+        AuthModule[Auth Module]
+        UsersModule[Users & Invites Module]
+        SwitchOrg[Org Context Switching]
     end
 
-    %% Flows
-    Frontend -->|HTTP Requests| AuthMid
-    AuthMid -->|Validates JWT| RoleGuard
-    RoleGuard -->|Routes Authorized Request| Gateway
-    
-    %% Route connections
-    Gateway -->|Auth & Switch Org Routes| AuthService
-    Gateway -->|Ticket Routes| TicketService
-    Gateway -->|Org Routes| OrgService
-    Gateway -->|User & Invite Routes| UserService
-    Gateway -->|Business Management Routes| BizService
-    Gateway -->|Dashboard Metrics Routes| DashService
-    
-    %% Rate Limiting Flow
-    AuthService -->|Checks rate limits| RateLimiter
-    RateLimiter -->|Increments / TTL| RedisStore
-    
-    %% Service connections
-    AuthService --> AuthRepo
-    TicketService --> TicketRepo
-    OrgService --> OrgRepo
-    UserService --> UserRepo
-    BizService --> BizRepo
-    
-    %% Shared systems
-    TicketService -->|Logs Action| AuditService
-    OrgService -->|Logs Action| AuditService
-    UserService -->|Logs Action| AuditService
-    BizService -->|Logs Action| AuditService
-    
-    TicketService -->|Triggers Alert| NotifService
-    UserService -->|Sends Branded Invite Link| Mailtrap
-    AuthService -->|Sends Verification/Reset OTP| Mailtrap
-    
-    NotifService --> NotifRepo
-    NotifService -->|Sends Email Notification| Mailtrap
-    
-    AuditService --> AuditRepo
-    
-    %% DB mapping
-    AuthRepo -->|Prisma Client @prisma-pg| Database
-    TicketRepo -->|Prisma Client @prisma-pg| Database
-    OrgRepo -->|Prisma Client @prisma-pg| Database
-    UserRepo -->|Prisma Client @prisma-pg| Database
-    BizRepo -->|Prisma Client @prisma-pg| Database
-    AuditRepo -->|Prisma Client @prisma-pg| Database
-    NotifRepo -->|Prisma Client @prisma-pg| Database
-    
-    %% File upload
-    TicketService -->|Uploads base64 attachments 10MB limit| Cloudinary
+    subgraph Ticketing & Workflow Domain
+        TicketsModule[Tickets Module]
+        AutoAssignEngine[Workload Auto-Assign Engine]
+        CommentsEngine[Threaded Comments]
+    end
+
+    subgraph Tenant & B2B Enterprise Domain
+        OrgsModule[Organizations Module]
+        BizModule[Businesses Module]
+    end
+
+    subgraph Operations & Analytics Domain
+        AuditModule[Audit Logs Module]
+        NotifModule[Notifications Module]
+        DashboardsModule[Dashboards Module]
+    end
+```
+
+### 3.1 Identity & Access Domain (`src/api/auth/`, `src/api/users/`)
+- **Business Purpose**: Manages user registration, email verification via OTP, authentication, multi-tenant organization switching, and Role-Based Access Control (RBAC) user invitations.
+- **Security Control**: Protected by `RateLimiterService` against brute-force attacks on sensitive endpoints:
+  - `/auth/verify-email`: Max 6 attempts per 15 minutes.
+  - `/auth/resend-verification-otp`: Max 6 attempts per 30 minutes.
+  - `/auth/change-password`: Max 6 attempts per 15 minutes.
+
+### 3.2 Ticketing & Workflow Domain (`src/api/tickets/`)
+- **Business Purpose**: Core ticketing engine handling creation, status tracking (`OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`), priority management, file attachment uploads, and comment threads.
+- **Automated Workload Assignment**: When organization assignment strategy is set to `AUTO`, new tickets trigger an algorithm querying active support staff in the tenant and auto-assigning the ticket to the agent with the lowest active workload.
+- **Customer Privacy Protection**: Ticket details and list endpoints sanitize `assignedTo` user objects for `CUSTOMER` role users, hiding the support agent's email address.
+
+### 3.3 Tenant & B2B Enterprise Domain (`src/api/organizations/`, `src/api/businesses/`)
+- **Business Purpose**: Manages enterprise tenant organizations and onboarded customer business entities (`Business`), ensuring strict multi-tenant data scoping using `organizationId`.
+
+### 3.4 Operations & Analytics Domain (`src/api/audit-logs/`, `src/api/dashboards/`, `src/api/notifications/`)
+- **Business Purpose**: Provides real-time dashboard metrics (Admin, Agent, Customer views), logs immutable audit trails for compliance, and dispatches branded email notifications via SMTP.
+
+---
+
+## 4. End-to-End Action-Labeled User Journeys
+
+### Journey 1: Support Ticket Creation & Workload Auto-Assignment
+```
+[Customer] --(1) POST /tickets [Title, Description, Base64 Attachments]--> [API Gateway]
+[API Gateway] --(2) Validate JWT & Rate Limits--> [TicketsService]
+[TicketsService] --(3) Upload Base64 Files (Max 10MB)--> [Cloudinary Storage]
+[TicketsService] --(4) Query Least-Busy Support Agent in Tenant--> [TicketsRepository]
+[TicketsService] --(5) Persist Ticket & Assign Agent--> [PostgreSQL DB]
+[TicketsService] --(6) Write Immutable Audit Record--> [AuditLogsService]
+[TicketsService] --(7) Dispatch Branded Assignment Emails--> [SMTP Mail Service]
+```
+
+### Journey 2: Organization Context Switching (Multi-Tenant Users)
+```
+[User] --(1) POST /auth/switch-organization { organizationId }--> [API Gateway]
+[API Gateway] --(2) Validate Membership/Ownership of Target Org--> [AuthService]
+[AuthService] --(3) Update User Default Organization--> [PostgreSQL DB]
+[AuthService] --(4) Issue New JWT Signed Token (Scoped Roles & OrgId)--> [User]
 ```
 
 ---
 
-## 2. Architectural Layers
+## 5. Third-Party Integrations, Constraints & Vendor SLAs
 
-The codebase strictly adheres to the **Controller -> Service -> Repository -> DTO** pattern, establishing clean boundaries and separation of concerns.
-
-### 2.1 HTTP Controller Layer
-- **Role**: Entry point for HTTP requests. Handles routing, HTTP response status codes, Express body parser configuration (up to 10MB payload size limit for image attachments), and input stream validation.
-- **Swagger Documentation**: Every controller endpoint includes a NestJS Swagger `@ApiResponse()` decorator with strongly typed `type` DTO responses for clean OpenAPI generation.
-- **Rules**: Controllers do **not** contain business logic. They immediately delegate execution to the service layer.
-- **Files**: Named `<name>.controller.ts`.
-
-### 2.2 Middleware & Guards
-- **Authentication Middleware**: Placed in `AuthenticationMiddleware` (`src/common/middlewares/auth.middleware.ts`). Decodes JWT Bearer tokens from incoming headers, validates signatures, and attaches the payload (`JwtPayload`) to `req.user`.
-- **Roles Guard**: Placed in `RolesGuard` (`src/common/guards/roles.guard.ts`). Works with the `@Roles(...)` custom decorator to enforce Role-Based Access Control (RBAC) across endpoints (`OWNER`, `ADMIN`, `SUPPORT`, `CUSTOMER`).
-
-### 2.3 Service Layer (Business Logic)
-- **Role**: Contains core business logic, permission checks, rate limit validations, ticket auto-assignment algorithms, branded email dispatch, and audit logging.
-- **Rules**: Services do **not** query the database directly. They delegate all database interactions to dedicated Repository classes.
-- **Files**: Named `<name>.service.ts`.
-
-### 2.4 Repository Layer (Data Access)
-- **Role**: Handles database queries. Translates business requests into database operations using the Prisma Client.
-- **Rules**: Imports Prisma clients and types exclusively from the custom `@prisma-pg` package.
-- **Files**: Named `<name>.repository.ts`.
-
-### 2.5 Data Transfer Objects (DTOs)
-- **Role**: Defines request bodies, parameters, and query shapes. Leverages `class-validator` decorators (e.g., `@IsString()`, `@IsOptional()`) to validate inputs automatically.
-- **Swagger Integration**: Fields use `@ApiProperty()` decorators with explicit types and descriptions.
-
-### 2.6 Redis & Rate Limiting Engine
-- **Role**: Provides sliding-window rate limiting for security-critical authentication endpoints.
-- **Architecture**: `RedisService` (`src/common/redis/redis.service.ts`) implements key operations (`incr`, `expire`, `ttl`, `get`, `set`) backed by an in-memory storage fallback. `RateLimiterService` (`src/common/redis/rate-limiter.service.ts`) checks request frequencies and throws `429 TOO_MANY_REQUESTS` exceptions when limits are exceeded.
+| Service / System | Domain | Integration Method | Constraints, SLAs & Costs |
+|---|---|---|---|
+| **PostgreSQL Database** | Data Persistence | Prisma ORM (`@prisma-pg`) | Primary relational data store. Enforces `organizationId` foreign key indexes for multi-tenant query performance. |
+| **Redis / In-Memory Store** | Cache & Security | `RedisService` / Sliding Window | Stores key TTL counters for rate limiting. Returns HTTP `429 Too Many Requests` when limits are breached. |
+| **Cloudinary Storage** | Media Storage | Base64 Upload API | Uploads attachments during ticket creation. Body parsers configured with `10mb` size limit. Returns CDN URLs. |
+| **SMTP Mail Server / Mailtrap** | Communication | Nodemailer + Handlebars | Dispatches branded HTML emails (verification OTPs, invites, password resets, ticket assignment alerts). |
 
 ---
 
-## 3. Core Architectural Patterns
+## 6. Security, Compliance & Data Privacy Boundaries
 
-### 3.1 Multi-Tenancy & Query Scoping
-The application enforces strict data isolation between different Tenants (Organizations). All queries retrieving, modifying, or deleting tenant resources (Tickets, Customer Businesses, Users, Dashboards) scope database queries using the active user's `organizationId` (extracted from the authenticated JWT token).
-- Cross-tenant requests (where resource `organizationId` does not match the active user's `organizationId`) are blocked with a `ForbiddenException` (403 status code).
-
-### 3.2 Organization Context & Active Tenant Switching
-Users belonging to or owning multiple organizations can switch their active organization context via `/auth/switch-organization`.
-- Validates membership or ownership of the target organization.
-- Updates the user's default organization (`defaultOrganizationId`) in the database.
-- Issues a new JWT token containing the updated `organizationId` and role bindings.
-
-### 3.3 Security Rate Limiting & Abuse Prevention
-To protect auth endpoints against brute-force attacks and abuse, sliding window rate limits are enforced via `RateLimiterService`:
-- **Email Verification (`/auth/verify-email`)**: Restricted to max 6 attempts per 15 minutes (900 seconds).
-- **Resend Verification OTP (`/auth/resend-verification-otp`)**: Restricted to max 6 attempts per 30 minutes (1800 seconds).
-- **Change Password (`/auth/change-password`)**: Restricted to max 6 attempts per 15 minutes (900 seconds).
-
-### 3.4 Audit Trails
-Sensitive business operations are logged via `AuditLogsService`. Immutable records containing action type, actor ID, entity type, affected entity ID, organization ID, and metadata are written into the `AuditLog` table for:
-- Creating organizations.
-- Inviting users and resending invitations.
-- Onboarding and managing customer businesses.
-- Ticket lifecycle actions (creating, updating status, changing priority, assigning agents, adding comments).
-
-### 3.5 Automated Ticket Assignment
-When an organization operates with `ticketAssignMethod = 'AUTO'`, creating a ticket automatically triggers the assignment algorithm:
-- Queries the repository to count open/assigned tickets per active support agent (`SUPPORT` role membership) within the tenant organization.
-- Auto-assigns the ticket to the agent with the lowest active workload.
-- Leaves the ticket unassigned if no active support staff exist.
-
-### 3.6 Customer Business Management
-Support and owner roles can onboard customer businesses (`Business`) scoped under their organization:
-- Maps B2B customer accounts to specific business entities.
-- Allows tickets to be associated with both the tenant Organization and the Customer Business.
-
----
-
-## 4. Third-Party Services & Integrations
-
-- **Prisma Client (`@prisma-pg`)**: Connects to the PostgreSQL database using `@prisma/adapter-pg`.
-- **Redis & Rate Limiting Engine**: Handles in-memory/Redis TTL key counters to enforce security rate limits on auth routes.
-- **SMTP Mail Server & Handlebars Templates**: Interfaced via Nodemailer using branded Handlebars templates (`src/email/templates/`) formatted with Fonu Desk design system colors to send invitation links, verification OTPs, password reset codes, and ticket notifications.
-- **Cloudinary Storage**: Processes base64-encoded image attachments uploaded during ticket creation (supporting up to 10MB payloads), uploads them securely to Cloudinary, and persists public image URLs.
+1. **Multi-Tenancy Perimeter**: Every database query scoped to tenant data must filter by `organizationId` extracted from the active user's verified JWT payload (`req.user.organizationId`).
+2. **Data Privacy Guard**: Customer users are restricted from viewing staff emails (`assignedTo.email`) and internal staff notes (`isInternal: true` comments).
+3. **Audit Compliance**: All state-changing actions (organization creation, user invitations, business onboarding, ticket status updates) automatically emit structured `AuditLog` records containing `actorId`, `action`, `entityType`, `entityId`, `organizationId`, and timestamp.

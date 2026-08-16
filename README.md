@@ -8,6 +8,8 @@ Fonu Desk is a simplified, B2B enterprise ticketing platform designed for SaaS o
 
 The backend application is built using **NestJS**, a progressive Node.js framework, and **TypeScript**. It follows the clean architecture pattern of **Controller -> Service -> Repository -> DTO**, ensuring absolute separation of concerns.
 
+![Fonu Desk Product Architecture](docs/po_architecture_diagram.png)
+
 ### 1.1 Components & Flow Diagram
 ```mermaid
 graph TD
