@@ -50,20 +50,15 @@ services:
       - fonu-network
 
   frontend:
-    build:
-      context: ../fonu-desk-frontend
-      dockerfile: Dockerfile
-      args:
-        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:4000}
     image: fonu-desk-frontend:latest
     container_name: fonu-desk-frontend
     restart: always
     ports:
       - '3000:3000'
     environment:
-      - PORT=3000
-      - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+      - PORT
+      - NODE_ENV
+      - NEXT_PUBLIC_API_URL
     depends_on:
       - backend
     networks:
@@ -75,4 +70,5 @@ volumes:
 networks:
   fonu-network:
     driver: bridge
+
 
