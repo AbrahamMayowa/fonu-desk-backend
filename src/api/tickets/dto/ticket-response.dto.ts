@@ -11,8 +11,8 @@ class UserBriefDto {
   @ApiProperty()
   lastName: string;
 
-  @ApiProperty()
-  email: string;
+  @ApiProperty({ required: false })
+  email?: string;
 }
 
 export class TicketResponseDto {
