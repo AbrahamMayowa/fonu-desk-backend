@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException, NotFoundException, Logger, ForbiddenException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException, Logger, ForbiddenException, HttpException, BadRequestException } from '@nestjs/common';
 import { TicketsRepository } from './tickets.repository';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { CreateTicketOnBehalfDto } from './dto/create-ticket-on-behalf.dto';
@@ -74,6 +74,9 @@ export class TicketsService {
       return ticket;
     } catch (error) {
       this.logger.error('Failed to create ticket', JSON.stringify({ userId: user.id, dto, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to create ticket');
     }
   }
@@ -122,6 +125,9 @@ export class TicketsService {
       return ticket;
     } catch (error) {
       this.logger.error('Failed to create ticket on behalf', JSON.stringify({ userId: user.id, dto, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to create ticket on behalf');
     }
   }
@@ -159,6 +165,9 @@ export class TicketsService {
       };
     } catch (error) {
       this.logger.error('Failed to fetch tickets', JSON.stringify({ userId: user.id, dto, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to fetch tickets');
     }
   }
@@ -185,6 +194,9 @@ export class TicketsService {
       return ticket;
     } catch (error) {
       this.logger.error('Failed to fetch ticket', JSON.stringify({ id, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to fetch ticket');
     }
   }
@@ -228,6 +240,9 @@ export class TicketsService {
       return ticket;
     } catch (error) {
       this.logger.error('Failed to update ticket', JSON.stringify({ userId: user.id, id, dto, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to update ticket');
     }
   }
@@ -260,6 +275,9 @@ export class TicketsService {
       return ticket;
     } catch (error) {
       this.logger.error('Failed to assign ticket', JSON.stringify({ userId: user.id, id, assignedToId, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to assign ticket');
     }
   }
@@ -294,6 +312,9 @@ export class TicketsService {
       return comment;
     } catch (error) {
       this.logger.error('Failed to add ticket comment', JSON.stringify({ userId: user.id, id, dto, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to add ticket comment');
     }
   }
@@ -306,6 +327,9 @@ export class TicketsService {
       return this.ticketsRepository.getComments(id, includeInternal);
     } catch (error) {
       this.logger.error('Failed to fetch ticket comments', JSON.stringify({ userId: user.id, id, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to fetch ticket comments');
     }
   }
@@ -321,6 +345,9 @@ export class TicketsService {
       return this.ticketsRepository.getHistory(id);
     } catch (error) {
       this.logger.error('Failed to fetch ticket history', JSON.stringify({ userId: user.id, id, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to fetch ticket history');
     }
   }
@@ -399,12 +426,27 @@ export class TicketsService {
 
   async uploadImage(base64Image: string) {
     try {
+      if (!base64Image) {
+        throw new BadRequestException('Image data is required');
+      }
+
+      const base64Data = base64Image.replace(/^data:image\/\w+;base64,/, '');
+      const sizeInBytes = Buffer.from(base64Data, 'base64').length;
+      const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+
+      if (sizeInBytes > MAX_SIZE_BYTES) {
+        throw new BadRequestException('File size exceeds the maximum allowed limit of 5MB');
+      }
+
       const result = await uploadBase64Image(base64Image) as any;
       return {
         fileUrl: result.secure_url,
         fileName: result.public_id,
       };
     } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       this.logger.error('Failed to upload image', JSON.stringify({ error: error.message }));
       throw new InternalServerErrorException('Failed to upload image');
     }

@@ -46,4 +46,10 @@ export class CreateTicketDto {
   @Type(() => TicketAttachmentDto)
   @IsOptional()
   attachment?: TicketAttachmentDto;
+
+  @ApiProperty({ type: [TicketAttachmentDto], required: false })
+  @ValidateNested({ each: true })
+  @Type(() => TicketAttachmentDto)
+  @IsOptional()
+  attachments?: TicketAttachmentDto[];
 }

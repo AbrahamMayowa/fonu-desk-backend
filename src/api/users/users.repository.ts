@@ -126,7 +126,7 @@ export class UsersRepository {
     });
   }
 
-  async createInvitation(data: Prisma.InvitationCreateInput): Promise<Invitation> {
+  async createInvitation(data: Prisma.InvitationCreateInput | Prisma.InvitationUncheckedCreateInput): Promise<Invitation> {
     return this.prisma.invitation.create({ data });
   }
 
@@ -194,9 +194,16 @@ export class UsersRepository {
     });
   }
 
+  async findAllRoles() {
+    return this.prisma.role.findMany({
+      orderBy: { name: 'asc' },
+    });
+  }
+
   async findInvitationsByOrganization(organizationId: string, skip: number, take: number) {
     return this.prisma.invitation.findMany({
       where: { organizationId },
+      include: { role: true },
       skip,
       take,
       orderBy: { createdAt: 'desc' },

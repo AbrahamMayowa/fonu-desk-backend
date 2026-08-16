@@ -11,7 +11,9 @@ import {
   InviteUserResponseDto, 
   MessageResponseDto,
   InvitationResponseDto,
-  PaginatedInvitationResponseDto
+  PaginatedInvitationResponseDto,
+  RoleDto,
+  AcceptInviteResponseDto
 } from './dto/responses.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -82,10 +84,10 @@ export class UsersController {
 
   @Post('accept-invite')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Accept an invitation and set up account' })
-  @ApiResponse({ status: 200, description: 'Invitation accepted successfully', type: MessageResponseDto })
+  @ApiOperation({ summary: 'Accept an invitation and set up account (returns login JWT token and user info)' })
+  @ApiResponse({ status: 200, description: 'Invitation accepted successfully', type: AcceptInviteResponseDto })
   @ApiResponse({ status: 400, description: 'Invalid or expired token' })
-  async acceptInvite(@Body() dto: AcceptInviteDto): Promise<MessageResponseDto> {
+  async acceptInvite(@Body() dto: AcceptInviteDto): Promise<AcceptInviteResponseDto> {
     return this.usersService.acceptInvite(dto);
   }
 
@@ -173,5 +175,15 @@ export class UsersController {
     @Param('id') id: string,
   ): Promise<InviteUserResponseDto> {
     return this.usersService.resendInvite(user, id);
+  }
+
+  @Get('roles')
+  @UseGuards(RolesGuard)
+  @Roles(ROLES.OWNER, ROLES.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get all system roles (Owner and Admin only)' })
+  @ApiResponse({ status: 200, description: 'List of roles retrieved successfully', type: [RoleDto] })
+  async getAllRoles(@CurrentUser() user: ActiveUserData): Promise<RoleDto[]> {
+    return this.usersService.getAllRoles(user) as unknown as RoleDto[];
   }
 }

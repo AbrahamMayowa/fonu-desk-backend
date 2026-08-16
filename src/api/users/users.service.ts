@@ -9,6 +9,7 @@ import { ROLES } from '../../common/constants/roles.constant';
 import type { ActiveUserData } from '../../common/interfaces/active-user-data.interface';
 import { GetInvitesDto } from './dto/get-invites.dto';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class UsersService {
@@ -18,6 +19,7 @@ export class UsersService {
     private readonly usersRepository: UsersRepository,
     private readonly emailService: EmailService,
     private readonly auditLogsService: AuditLogsService,
+    private readonly jwtService: JwtService,
   ) {}
 
   async getUserDetails(userId: string) {
@@ -104,7 +106,7 @@ export class UsersService {
       const frontendUrl = process.env.FRONTEND_URL;
       const inviteLink = `${frontendUrl}/accept-invite?token=${token}`;
 
-      await this.emailService.sendUserInviteEmail(dto.email, { inviteLink });
+      this.emailService.sendUserInviteEmail(dto.email, { inviteLink });
 
       await this.auditLogsService.createLog({
         action: 'INVITE_USER',
@@ -145,7 +147,7 @@ export class UsersService {
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
-    return this.usersRepository.executeTransaction(async (tx) => {
+    const { user, roleName } = await this.usersRepository.executeTransaction(async (tx) => {
       // 1. Check if user already exists (maybe they signed up independently)
       let user = await tx.user.findUnique({ where: { email: invitation.email } });
       
@@ -158,20 +160,47 @@ export class UsersService {
             firstName: dto.firstName,
             lastName: dto.lastName,
             emailVerified: true, // Auto-verified via invite email
+            defaultOrganizationId: invitation.organizationId,
           }
+        });
+      } else if (!user.defaultOrganizationId) {
+        user = await tx.user.update({
+          where: { id: user.id },
+          data: { defaultOrganizationId: invitation.organizationId },
         });
       }
 
-      // 3. Create organization member (scoping the role to this org)
-      await tx.organizationMember.create({
-        data: {
-          userId: user.id,
-          organizationId: invitation.organizationId,
-          roleId: invitation.roleId,
-          businessId: invitation.businessId,
-          isActive: true,
+      // 3. Create or update organization member (scoping the role to this org)
+      const existingMember = await tx.organizationMember.findUnique({
+        where: {
+          userId_organizationId: {
+            userId: user.id,
+            organizationId: invitation.organizationId,
+          }
         }
       });
+
+      if (!existingMember) {
+        await tx.organizationMember.create({
+          data: {
+            userId: user.id,
+            organizationId: invitation.organizationId,
+            roleId: invitation.roleId,
+            businessId: invitation.businessId,
+            isActive: true,
+          }
+        });
+      } else if (existingMember.deletedAt || !existingMember.isActive) {
+        await tx.organizationMember.update({
+          where: { id: existingMember.id },
+          data: {
+            roleId: invitation.roleId,
+            businessId: invitation.businessId || existingMember.businessId,
+            isActive: true,
+            deletedAt: null,
+          }
+        });
+      }
 
       // 4. Mark invitation as accepted
       await tx.invitation.update({
@@ -179,8 +208,45 @@ export class UsersService {
         data: { status: 'ACCEPTED' }
       });
 
-      return { message: 'Invitation accepted successfully' };
+      const role = await tx.role.findUnique({ where: { id: invitation.roleId } });
+
+      return { user, roleName: role?.name || null };
     });
+
+    const roles: string[] = [];
+    if (user.isOwner) {
+      roles.push(ROLES.OWNER);
+    }
+    if (roleName) {
+      roles.push(roleName);
+    }
+
+    const defaultOrgId = user.defaultOrganizationId || invitation.organizationId;
+
+    const payload = {
+      id: user.id,
+      email: user.email,
+      roles,
+      isOwner: user.isOwner,
+      organizationId: invitation.organizationId,
+    };
+
+    const accessToken = await this.jwtService.signAsync(payload);
+
+    this.logger.log('Invitation accepted successfully', JSON.stringify({ userId: user.id, organizationId: invitation.organizationId }));
+
+    return {
+      message: 'Invitation accepted successfully',
+      accessToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        isOwner: user.isOwner,
+        defaultOrganizationId: defaultOrgId,
+      },
+    };
   }
 
   async removeUser(currentUser: ActiveUserData, targetUserId: string) {
@@ -256,7 +322,7 @@ export class UsersService {
       const frontendUrl = process.env.FRONTEND_URL;
       const inviteLink = `${frontendUrl}/accept-invite?token=${token}`;
 
-      await this.emailService.sendUserInviteEmail(invitation.email, { inviteLink });
+      this.emailService.sendUserInviteEmail(invitation.email, { inviteLink });
 
       await this.auditLogsService.createLog({
         action: 'RESEND_INVITATION',
@@ -282,6 +348,16 @@ export class UsersService {
         throw error;
       }
       throw new InternalServerErrorException('Failed to resend invitation');
+    }
+  }
+
+  async getAllRoles(currentUser: ActiveUserData) {
+    try {
+      const roles = await this.usersRepository.findAllRoles();
+      return roles;
+    } catch (error) {
+      this.logger.error('Failed to get roles list', JSON.stringify({ organizationId: currentUser.organizationId, actorId: currentUser.id, error: error.message }));
+      throw new InternalServerErrorException('Failed to retrieve roles list');
     }
   }
 }

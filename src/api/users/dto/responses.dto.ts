@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { AuthUserResponseDto } from '../../auth/dto/responses.dto';
 
 export class UserSummaryDto {
   @ApiProperty()
@@ -117,6 +118,9 @@ export class InvitationResponseDto {
 
   @ApiProperty()
   updatedAt: Date;
+
+  @ApiProperty({ type: RoleDto, nullable: true })
+  role?: RoleDto;
 }
 
 export class PaginatedInvitationResponseDto {
@@ -125,4 +129,15 @@ export class PaginatedInvitationResponseDto {
 
   @ApiProperty()
   total: number;
+}
+
+export class AcceptInviteResponseDto {
+  @ApiProperty()
+  message: string;
+
+  @ApiProperty()
+  accessToken: string;
+
+  @ApiProperty({ type: AuthUserResponseDto })
+  user: AuthUserResponseDto;
 }

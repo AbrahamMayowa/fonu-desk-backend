@@ -77,6 +77,6 @@ export class AuthController {
     @Body() dto: SwitchOrganizationDto,
     @CurrentUser() user: any
   ): Promise<SwitchOrganizationResponseDto> {
-    return this.authService.switchOrganization(user.sub, dto.organizationId);
+    return this.authService.switchOrganization(user.id || user.sub, dto.organizationId);
   }
 }

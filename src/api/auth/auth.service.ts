@@ -29,34 +29,30 @@ export class AuthService {
       throw new ConflictException('Email already in use');
     }
 
-    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    await this.authRepository.deleteOtpsByEmailAndType(dto.email, 'VERIFY_EMAIL');
 
-    const user = await this.authRepository.createUser({
-      email: dto.email,
-      password: hashedPassword,
-      firstName: dto.firstName,
-      lastName: dto.lastName,
-      isOwner: true, // They are signing up as an owner
-    });
-
-    // Generate and store OTP
+    // Generate and store OTP first
     const code = this.generateOtp();
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + 15);
 
-    await this.authRepository.createOtp({
-      email: user.email,
+    const otpRecord = await this.authRepository.createOtp({
+      email: dto.email,
       code,
       type: 'VERIFY_EMAIL',
       expiresAt,
     });
 
+    // Create TempUser linking otpId
+    await this.authRepository.upsertTempUser({
+      email: dto.email,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      otpId: otpRecord.id,
+    });
+
     // Send Email
-    await this.emailService.sendMail(
-      user.email,
-      'Welcome! Verify your email',
-      `<p>Your verification code is <strong>${code}</strong>. It expires in 15 minutes.</p>`,
-    );
+    this.emailService.sendVerificationOtpEmail(dto.email, { code });
 
     return { message: 'Signup successful. Please verify your email with the OTP sent.' };
   }
@@ -68,50 +64,127 @@ export class AuthService {
       throw new BadRequestException('Invalid or expired OTP');
     }
 
-    const user = await this.authRepository.findUserByEmail(dto.email);
-    if (!user) {
-      throw new NotFoundException('User not found');
+    const tempUser = (await this.authRepository.findTempUserByOtpId(otpRecord.id)) || otpRecord.tempUser || (await this.authRepository.findTempUserByEmail(dto.email));
+    if (!tempUser) {
+      const existingUser = await this.authRepository.findUserByEmail(dto.email);
+      if (existingUser && existingUser.emailVerified) {
+        let defaultOrganizationId: string | null = null;
+        if (existingUser.defaultOrganizationId) {
+          const isOwnerOfDefault = existingUser.ownedOrganizations?.some(org => org.id === existingUser.defaultOrganizationId && !org.deletedAt);
+          const isMemberOfDefault = existingUser.memberships?.some(mem => mem.organizationId === existingUser.defaultOrganizationId && mem.isActive !== false && !mem.deletedAt);
+          if (isOwnerOfDefault || isMemberOfDefault) {
+            defaultOrganizationId = existingUser.defaultOrganizationId;
+          }
+        }
+
+        if (!defaultOrganizationId) {
+          if (existingUser.ownedOrganizations && existingUser.ownedOrganizations.length > 0) {
+            defaultOrganizationId = existingUser.ownedOrganizations[0].id;
+          } else if (existingUser.memberships && existingUser.memberships.length > 0) {
+            defaultOrganizationId = existingUser.memberships[0].organizationId;
+          }
+        }
+
+        const roles: string[] = [];
+        if (defaultOrganizationId) {
+          const ownsActiveOrg = existingUser.ownedOrganizations?.some(org => org.id === defaultOrganizationId);
+          if (ownsActiveOrg) roles.push(ROLES.OWNER);
+          const activeMembership = existingUser.memberships?.find(m => m.organizationId === defaultOrganizationId);
+          if (activeMembership) roles.push(activeMembership.role.name);
+        } else if (existingUser.isOwner) {
+          roles.push(ROLES.OWNER);
+        }
+
+        const accessToken = await this.jwtService.signAsync({
+          id: existingUser.id,
+          email: existingUser.email,
+          roles,
+          isOwner: existingUser.isOwner,
+          organizationId: defaultOrganizationId,
+        });
+
+        return {
+          message: 'Email verified successfully.',
+          accessToken,
+          user: {
+            id: existingUser.id,
+            email: existingUser.email,
+            firstName: existingUser.firstName,
+            lastName: existingUser.lastName,
+            isOwner: existingUser.isOwner,
+            defaultOrganizationId,
+          },
+        };
+      }
+      throw new BadRequestException('Invalid or expired OTP');
     }
 
-    await this.authRepository.updateUser(user.id, { emailVerified: true });
-    await this.authRepository.deleteOtp(otpRecord.id);
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    const user = await this.authRepository.verifyEmailAndPromoteUser(tempUser, otpRecord.id, hashedPassword);
 
-    return { message: 'Email verified successfully.' };
+    const roles: string[] = [];
+    if (user.isOwner) {
+      roles.push(ROLES.OWNER);
+    }
+
+    const accessToken = await this.jwtService.signAsync({
+      id: user.id,
+      email: user.email,
+      roles,
+      isOwner: user.isOwner,
+      organizationId: null,
+    });
+
+    return {
+      message: 'Email verified successfully.',
+      accessToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        isOwner: user.isOwner,
+        defaultOrganizationId: null,
+      },
+    };
   }
 
   async resendVerificationOtp(dto: ResendOtpDto) {
-    const user = await this.authRepository.findUserByEmail(dto.email);
-    
-    if (!user) {
+    const existingUser = await this.authRepository.findUserByEmail(dto.email);
+    if (existingUser && existingUser.emailVerified) {
+      throw new ConflictException('Email is already verified.');
+    }
+
+    const tempUser = await this.authRepository.findTempUserByEmail(dto.email);
+    if (!tempUser) {
       // Don't leak user existence
       return { message: 'If the email is registered, a new OTP has been sent.' };
     }
 
-    if (user.emailVerified) {
-      throw new ConflictException('Email is already verified.');
-    }
-
     // Invalidate existing verify email OTPs
-    await this.authRepository.deleteOtpsByEmailAndType(user.email, 'VERIFY_EMAIL');
+    await this.authRepository.deleteOtpsByEmailAndType(tempUser.email, 'VERIFY_EMAIL');
 
     // Generate new OTP
     const code = this.generateOtp();
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + 15);
 
-    await this.authRepository.createOtp({
-      email: user.email,
+    const otpRecord = await this.authRepository.createOtp({
+      email: tempUser.email,
       code,
       type: 'VERIFY_EMAIL',
       expiresAt,
     });
 
+    await this.authRepository.upsertTempUser({
+      email: tempUser.email,
+      firstName: tempUser.firstName,
+      lastName: tempUser.lastName,
+      otpId: otpRecord.id,
+    });
+
     // Send Email
-    await this.emailService.sendMail(
-      user.email,
-      'Welcome! Verify your email',
-      `<p>Your new verification code is <strong>${code}</strong>. It expires in 15 minutes.</p>`,
-    );
+    this.emailService.sendVerificationOtpEmail(tempUser.email, { code });
 
     return { message: 'If the email is registered, a new OTP has been sent.' };
   }
@@ -126,12 +199,27 @@ export class AuthService {
       throw new UnauthorizedException('Please verify your email before logging in');
     }
 
-    // Get default organization if present (for owners, their first owned organization)
+    // Determine default organization:
+    // First, check if user.defaultOrganizationId is set and valid
     let defaultOrganizationId: string | null = null;
-    if (user.ownedOrganizations && user.ownedOrganizations.length > 0) {
-      defaultOrganizationId = user.ownedOrganizations[0].id;
-    } else if (user.memberships && user.memberships.length > 0) {
-      defaultOrganizationId = user.memberships[0].organizationId;
+    if (user.defaultOrganizationId) {
+      const isOwnerOfDefault = user.ownedOrganizations?.some(org => org.id === user.defaultOrganizationId && !org.deletedAt);
+      const isMemberOfDefault = user.memberships?.some(mem => mem.organizationId === user.defaultOrganizationId && mem.isActive !== false && !mem.deletedAt);
+      if (isOwnerOfDefault || isMemberOfDefault) {
+        defaultOrganizationId = user.defaultOrganizationId;
+      }
+    }
+
+    if (!defaultOrganizationId) {
+      if (user.ownedOrganizations && user.ownedOrganizations.length > 0) {
+        defaultOrganizationId = user.ownedOrganizations[0].id;
+      } else if (user.memberships && user.memberships.length > 0) {
+        defaultOrganizationId = user.memberships[0].organizationId;
+      }
+
+      if (defaultOrganizationId) {
+        await this.authRepository.updateUser(user.id, { defaultOrganizationId });
+      }
     }
 
     const roles: string[] = [];
@@ -174,12 +262,17 @@ export class AuthService {
     }
 
     // Verify user has access to this organization
-    const isOwner = user.ownedOrganizations.some(org => org.id === newOrganizationId);
-    const isMember = user.memberships.some(mem => mem.organizationId === newOrganizationId);
+    const isOwner = user.ownedOrganizations.some(org => org.id === newOrganizationId && !org.deletedAt);
+    const isMember = user.memberships.some(mem => mem.organizationId === newOrganizationId && mem.isActive !== false && !mem.deletedAt);
 
     if (!isOwner && !isMember) {
       throw new UnauthorizedException('You do not have access to this organization');
     }
+
+    // Persist as user's default organization in DB
+    await this.authRepository.updateUser(userId, {
+      defaultOrganizationId: newOrganizationId,
+    });
 
     const roles: string[] = [];
     const ownsActiveOrg = user.ownedOrganizations?.some(org => org.id === newOrganizationId);
@@ -222,11 +315,7 @@ export class AuthService {
       expiresAt,
     });
 
-    await this.emailService.sendMail(
-      user.email,
-      'Password Reset Request',
-      `<p>Your password reset code is <strong>${code}</strong>. It expires in 15 minutes.</p>`,
-    );
+    this.emailService.sendPasswordResetEmail(user.email, { code });
 
     return { message: 'If the email exists, a reset code has been sent.' };
   }

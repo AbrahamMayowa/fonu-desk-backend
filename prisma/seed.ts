@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { ROLES } from '../src/common/constants/roles.constant';
 import { PrismaClient } from '@prisma-pg';
 import { PrismaPg } from '@prisma/adapter-pg';

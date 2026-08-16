@@ -34,13 +34,30 @@ export class TicketsRepository {
   }
 
   async findOne(id: string) {
-    return this.prisma.ticket.findUnique({
-      where: { id },
-      include: {
-        createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
-        assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
-      }
-    });
+    let ticket = null;
+    if (id.length === 36) {
+      ticket = await this.prisma.ticket.findUnique({
+        where: { id },
+        include: {
+          createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+          assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
+          attachments: true,
+        }
+      });
+    }
+    if (!ticket) {
+      ticket = await this.prisma.ticket.findFirst({
+        where: {
+          id: { startsWith: id, mode: 'insensitive' },
+        },
+        include: {
+          createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+          assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
+          attachments: true,
+        }
+      });
+    }
+    return ticket;
   }
 
   async update(id: string, data: Prisma.TicketUpdateInput) {

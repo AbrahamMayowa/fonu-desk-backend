@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: fonu-desk-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: fonu-desk
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d fonu-desk"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fonu-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fonu-desk-backend
+    restart: always
+    ports:
+      - '4000:4000'
+    environment:
+      PORT: 4000
+      DATABASE_URL: "postgresql://postgres:password123@db:5432/fonu-desk?schema=public"
+      JWT_SECRET: "super-secret-key-for-dev"
+      FRONTEND_URL: "http://localhost:3000"
+      
+      # Cloudinary configuration (placeholders - replace with real keys if needed)
+      CLOUDINARY_CLOUD_NAME: "oaetuek3"
+      CLOUDINARY_API_KEY: "999346767985531"
+      CLOUDINARY_API_SECRET: "yGE5lne3u8CNbZhyqt3md8vQ2vs"
+
+      # SMTP Configuration for Email Notifications (defaults to Mailtrap sandbox configuration)
+      SMTP_HOST: "smtp.mailtrap.io"
+      SMTP_PORT: 2525
+      SMTP_SECURE: "false"
+      SMTP_USER: "dev_user"
+      SMTP_PASSWORD: "dev_pass"
+      SMTP_FROM_EMAIL: "noreply@example.com"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: sh -c "npx prisma migrate deploy && npx prisma db seed && node dist/main.js"
+    networks:
+      - fonu-network
+
+volumes:
+  pgdata:
+
+networks:
+  fonu-network:
+    driver: bridge

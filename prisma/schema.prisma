@@ -27,6 +27,9 @@ model User {
   owner     User?    @relation("UserToOwner", fields: [ownerId], references: [id])
   ownedUsers User[]  @relation("UserToOwner")
 
+  defaultOrganizationId String?
+  defaultOrganization   Organization? @relation("UserDefaultOrganization", fields: [defaultOrganizationId], references: [id], onDelete: SetNull)
+
   ownedOrganizations Organization[] @relation("OrganizationOwner")
   ownedBusinesses    Business[]     @relation("BusinessOwner")
   memberships        OrganizationMember[]
@@ -49,6 +52,7 @@ model Role {
   name        String   @unique // e.g., ADMINISTRATOR, SUPPORT_AGENT, CUSTOMER
   description String?
   memberships OrganizationMember[]
+  invitations Invitation[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -78,6 +82,7 @@ model Organization {
   ticketAssignMethod TicketAssignMethod @default(MANUAL)
   
   owner       User                 @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  defaultUsers User[]              @relation("UserDefaultOrganization")
   memberships OrganizationMember[]
   tickets     Ticket[]
   businesses  Business[]
@@ -209,13 +214,28 @@ model AuditLog {
   createdAt      DateTime @default(now())
 }
 
-model Otp {
+model TempUser {
   id        String   @id @default(uuid())
   email     String
-  code      String
-  type      String   // e.g., 'VERIFY_EMAIL', 'RESET_PASSWORD'
-  expiresAt DateTime
+  password  String?
+  firstName String
+  lastName  String
+  otpId     String?  @unique
+  otp       Otp?     @relation(fields: [otpId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+}
+
+model Otp {
+  id        String    @id @default(uuid())
+  email     String
+  code      String
+  type      String    // e.g., 'VERIFY_EMAIL', 'RESET_PASSWORD'
+  expiresAt DateTime
+  tempUser  TempUser?
+  createdAt DateTime  @default(now())
 
   @@index([email])
 }
@@ -231,6 +251,8 @@ model Invitation {
   expiresAt      DateTime
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  role           Role     @relation(fields: [roleId], references: [id], onDelete: Restrict)
 }
 
 model Notification {
