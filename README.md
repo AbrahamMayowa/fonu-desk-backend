@@ -1,6 +1,6 @@
 # Fonu Desk Backend - API Service
 
-Fonu Desk is a simplified, B2B enterprise ticketing platform designed for SaaS organizations. It enables businesses to manage organizations, invite members with Role-Based Access Control (RBAC), create and track tickets, add comments, and maintain full audit logs.
+Fonu Desk is a simplified, B2B enterprise ticketing platform designed for SaaS organizations. It enables businesses to manage organizations, invite members with Role-Based Access Control (RBAC), manage customer business entities, create and track support tickets with base64 attachments, add comments, enforce rate limiting on security endpoints, and maintain full audit logs.
 
 ---
 
@@ -18,9 +18,10 @@ graph TD
     subgraph NestJS Backend Application
         Gateway[HTTP Controller Layer]
         
-        %% Middleware & Guards
+        %% Middleware, Guards & Security
         AuthMid[Authentication Middleware]
         RoleGuard[Roles Guard]
+        RateLimiter[Rate Limiter Service]
         
         %% Services & Repositories
         subgraph Business Logic & DB Layer
@@ -35,18 +36,24 @@ graph TD
             
             UserService[Users Service]
             UserRepo[Users Repository]
+
+            BizService[Businesses Service]
+            BizRepo[Businesses Repository]
             
             AuditService[AuditLogs Service]
             AuditRepo[AuditLogs Repository]
             
             NotifService[Notifications Service]
             NotifRepo[Notifications Repository]
+            
+            DashService[Dashboards Service]
         end
     end
     
-    %% External systems
+    %% External systems & Cache Layer
     subgraph Databases & External Integrations
         Database[(PostgreSQL Database)]
+        RedisStore[(Redis / In-Memory Store)]
         Cloudinary[Cloudinary Image Storage]
         Mailtrap[SMTP Mail Service]
     end
@@ -57,41 +64,50 @@ graph TD
     RoleGuard -->|Routes Authorized Request| Gateway
     
     %% Route connections
-    Gateway -->|Auth Routes| AuthService
+    Gateway -->|Auth & Switch Org Routes| AuthService
     Gateway -->|Ticket Routes| TicketService
-    Gateway -->|Org/Biz Routes| OrgService
-    Gateway -->|User/Invite Routes| UserService
+    Gateway -->|Org Routes| OrgService
+    Gateway -->|User & Invite Routes| UserService
+    Gateway -->|Business Management Routes| BizService
+    Gateway -->|Dashboard Metrics Routes| DashService
+    
+    %% Rate Limiting Flow
+    AuthService -->|Checks rate limits| RateLimiter
+    RateLimiter -->|Increments / TTL| RedisStore
     
     %% Service connections
     AuthService --> AuthRepo
     TicketService --> TicketRepo
     OrgService --> OrgRepo
     UserService --> UserRepo
+    BizService --> BizRepo
     
     %% Shared systems
     TicketService -->|Logs Action| AuditService
     OrgService -->|Logs Action| AuditService
     UserService -->|Logs Action| AuditService
+    BizService -->|Logs Action| AuditService
     
     TicketService -->|Triggers Alert| NotifService
-    UserService -->|Sends Invite Link| Mailtrap
-    AuthService -->|Sends OTP| Mailtrap
+    UserService -->|Sends Branded Invite Link| Mailtrap
+    AuthService -->|Sends Verification/Reset OTP| Mailtrap
     
     NotifService --> NotifRepo
-    NotifService -->|Sends Email Alert| Mailtrap
+    NotifService -->|Sends Email Notification| Mailtrap
     
     AuditService --> AuditRepo
     
     %% DB mapping
-    AuthRepo -->|Prisma Client| Database
-    TicketRepo -->|Prisma Client| Database
-    OrgRepo -->|Prisma Client| Database
-    UserRepo -->|Prisma Client| Database
-    AuditRepo -->|Prisma Client| Database
-    NotifRepo -->|Prisma Client| Database
+    AuthRepo -->|Prisma Client @prisma-pg| Database
+    TicketRepo -->|Prisma Client @prisma-pg| Database
+    OrgRepo -->|Prisma Client @prisma-pg| Database
+    UserRepo -->|Prisma Client @prisma-pg| Database
+    BizRepo -->|Prisma Client @prisma-pg| Database
+    AuditRepo -->|Prisma Client @prisma-pg| Database
+    NotifRepo -->|Prisma Client @prisma-pg| Database
     
     %% File upload
-    TicketService -->|Uploads base64 attachments| Cloudinary
+    TicketService -->|Uploads base64 attachments 10MB limit| Cloudinary
 ```
 
 ---
@@ -102,23 +118,25 @@ The project code is organized into feature-based modules within the `src/` direc
 
 ```bash
 src/
-├── api/                  # Main Business Modules
-│   ├── audit-logs/       # Audit trail logger (sensitive actions)
-│   ├── auth/             # Authentication & verification logic
+├── api/                  # Main Business Feature Modules
+│   ├── audit-logs/       # Immutable audit trail logging for sensitive tenant actions
+│   ├── auth/             # Authentication, verification, login, OTP & organization switching
 │   ├── businesses/       # Customer business entities (scoped to organization)
-│   ├── dashboards/       # Dashboard metrics (Admin, Agent, Customer stats)
-│   ├── notifications/    # Internal notifications and alerts
-│   ├── organizations/    # Organization creation and metadata management
-│   ├── tickets/          # Ticket creation, assignment, comment threads
-│   └── users/            # Organization membership and invitations (invite/accept)
-├── common/               # Shared utilities, decorators, guards, and middlewares
-│   ├── constants/        # Roles constants (OWNER, ADMIN, SUPPORT, CUSTOMER)
-│   ├── decorators/       # Parameter/Route decorators (@CurrentUser, @Roles)
-│   ├── guards/           # Route guarding (RolesGuard)
-│   ├── middlewares/      # Authentication middleware (decodes JWT)
-│   └── interfaces/       # Global TS types & interfaces
-├── database/             # Global Prisma client provider wrapper
-└── email/                # Nodemailer and Handlebars email template engines
+│   ├── dashboards/       # Multi-role dashboard metrics (Admin, Agent, Customer stats)
+│   ├── notifications/    # Internal notifications and email alert dispatchers
+│   ├── organizations/    # Organization tenancy, membership & assignment config
+│   ├── tickets/          # Ticket management, auto-assignment, thread comments & attachments
+│   └── users/            # User membership, RBAC management, invitation flow & accept logic
+├── common/               # Shared cross-cutting concerns, utilities & guards
+│   ├── constants/        # System constants & Role definitions (OWNER, ADMIN, SUPPORT, CUSTOMER)
+│   ├── decorators/       # Custom TS decorators (@CurrentUser, @Roles)
+│   ├── guards/           # Role-based access control guards (RolesGuard)
+│   ├── logger/           # Structured Winston logger module
+│   ├── middlewares/      # Bearer token JWT authentication middleware
+│   ├── redis/            # Redis & In-Memory Rate Limiting engine (RateLimiterService)
+│   └── interfaces/       # Shared TypeScript types & JwtPayload contracts
+├── database/             # Prisma Service & @prisma-pg PostgreSQL connection module
+└── email/                # Nodemailer integration & Handlebars branded email templates
 ```
 
 ---
@@ -127,17 +145,18 @@ src/
 
 The database utilizes PostgreSQL mapped through **Prisma ORM** (configured under `@prisma-pg`). Key schemas include:
 
-- **User**: Represents registered accounts (owners, staff, customers) and manages global verification state.
-- **Organization**: Top-level tenant. Has an owner and controls ticket assignment configuration (`AUTO` or `MANUAL`).
-- **OrganizationMember**: Map table connecting Users, Organizations, Roles, and optional Business entities to scope B2B user membership.
-- **Business**: Represents B2B customer organizations/companies onboarded under the primary Tenant.
-- **Ticket**: Represents support requests scoped to organizations and optionally customer businesses. Can be auto-assigned.
-- **TicketComment**: Thread comments (supports internal comments restricted to support/owners).
-- **TicketAttachment**: Cloudinary URLs for attachments uploaded during ticket creation.
-- **TicketHistory**: Automatically logs changes to ticket parameters (e.g., status, priority).
-- **AuditLog**: Complete system-wide immutable action log of sensitive tenant changes.
-- **Otp**: Stores temporary validation codes (email verification, password reset).
-- **Invitation**: Tracks pending/accepted user invitations (contains tokens and role configurations).
+- **User**: Represents registered accounts (owners, staff, customers), tracking global email verification state, passwords, and active default organization references.
+- **TempUser**: Staging model storing unverified user registrations pending OTP verification.
+- **Organization**: Top-level tenant container. Manages owner references and ticket assignment strategies (`AUTO` or `MANUAL`).
+- **OrganizationMember**: Join table connecting Users, Organizations, Roles (`ADMIN`, `SUPPORT`, `CUSTOMER`), and optional Customer Businesses to scope B2B user membership.
+- **Business**: Customer enterprise/company entities onboarded under a primary Organization tenant.
+- **Ticket**: Represents support requests scoped to organizations and customer businesses, controlling lifecycle states, priorities, agent assignments, and base64 attachments.
+- **TicketComment**: Thread comments with support for internal comments (visible strictly to support agents and owners).
+- **TicketAttachment**: Cloudinary file metadata and access URLs uploaded during ticket creation.
+- **TicketHistory**: Automated audit log capturing ticket status, priority, and assignment updates over time.
+- **AuditLog**: Complete system-wide immutable action log recording sensitive tenant changes.
+- **Otp**: Temporary validation codes for email verification (`VERIFY_EMAIL`) and password resets (`RESET_PASSWORD`) with TTL expiration.
+- **Invitation**: Tracks pending and accepted organization invitation tokens, roles, and business assignments.
 
 ---
 
@@ -151,13 +170,14 @@ cp .env.example .env
 | Variable Name | Purpose | Example / Default Value |
 |---|---|---|
 | `PORT` | Local server port | `4000` |
-| `FRONTEND_URL` | Frontend URL for generating links | `http://localhost:3000` |
+| `NODE_ENV` | Application environment | `development` |
+| `FRONTEND_URL` | Frontend URL for CORS and invitation links | `http://localhost:3000` |
 | `DB_HOST` | Database host | `127.0.0.1` |
 | `DB_PORT` | Database port | `5432` |
 | `DB_USER` | Database user name | `postgres` |
 | `DB_PASSWORD` | Database password | `password123` |
 | `DB_NAME` | Database schema name | `fonu-desk` |
-| `DATABASE_URL` | Prisma Connection string | `postgresql://postgres:password123@127.0.0.1:5432/fonu-desk?schema=public` |
+| `DATABASE_URL` | Prisma connection string | `postgresql://postgres:password123@127.0.0.1:5432/fonu-desk?schema=public` |
 | `JWT_SECRET` | Secret used to sign authentication tokens | `super-secret-key-for-dev` |
 | `CLOUDINARY_CLOUD_NAME` | Cloudinary storage bucket | `your_cloud_name` |
 | `CLOUDINARY_API_KEY` | Cloudinary API Key | `your_api_key` |
@@ -203,7 +223,11 @@ Prerequisites: **Node.js 20+**, **Yarn**, and a running **PostgreSQL** database.
    ```
    *The Swagger API documentation will be available at `http://localhost:4000/api`.*
 
-### 5.2 Running via Docker Compose
+### 5.2 Request Body & Security Features
+- **10MB Payload Limit**: Body parsers (`json` and `urlencoded`) are configured to accept payloads up to `10mb` to support base64 image file uploads during ticket creation.
+- **Rate Limiting**: Security-critical authentication routes (`/auth/verify-email`, `/auth/resend-verification-otp`, `/auth/change-password`) are guarded by `RateLimiterService` (Redis / in-memory fallback), returning HTTP `429 Too Many Requests` when limits are exceeded.
+
+### 5.3 Running via Docker Compose
 Prerequisites: **Docker** and **Docker Compose**.
 
 Build and spin up the complete application stack (NestJS API + PostgreSQL DB):
@@ -213,14 +237,14 @@ docker compose up --build
 On startup, the backend automatically:
 1. Waits for PostgreSQL to be fully ready and accepting connections.
 2. Deploys the latest database migrations (`prisma migrate deploy`).
-3. Seeds the default Roles into the database.
+3. Seeds default Roles into the database.
 4. Launches the NestJS HTTP server on port `4000`.
 
 ---
 
 ## 6. Testing Guide
 
-The codebase has unit tests for key business logic and E2E integration tests for major endpoints. They utilize mocks to run fast and reliably out of the box.
+The codebase has unit tests for core business logic and E2E integration tests for major endpoints.
 
 ```bash
 # Run unit tests
