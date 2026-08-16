@@ -45,14 +45,22 @@ export class TicketsService {
         assignedToId,
       };
 
+      const attachmentList: Array<{ fileName: string; fileUrl: string; fileType?: string }> = [];
+      if (dto.attachments && Array.isArray(dto.attachments)) {
+        attachmentList.push(...dto.attachments);
+      }
       if (dto.attachment) {
+        attachmentList.push(dto.attachment);
+      }
+
+      if (attachmentList.length > 0) {
         ticketData.attachments = {
-          create: [{
-            fileName: dto.attachment.fileName,
-            fileUrl: dto.attachment.fileUrl,
-            fileType: dto.attachment.fileType,
+          create: attachmentList.map((att) => ({
+            fileName: att.fileName,
+            fileUrl: att.fileUrl,
+            fileType: att.fileType,
             uploadedById: user.id,
-          }],
+          })),
         };
       }
 
@@ -64,7 +72,7 @@ export class TicketsService {
         entityId: ticket.id,
         actorId: user.id,
         organizationId: ticket.organizationId,
-        details: { title: ticket.title, hasAttachment: !!dto.attachment },
+        details: { title: ticket.title, attachmentCount: attachmentList.length },
       });
 
       if (assignedToId) {
@@ -99,7 +107,7 @@ export class TicketsService {
         assignedToId = await this.ticketsRepository.findAgentWithFewestTickets(org.id);
       }
 
-      const ticket = await this.ticketsRepository.create({
+      const ticketData: Prisma.TicketUncheckedCreateInput = {
         title: dto.title,
         description: dto.description,
         priority: dto.priority,
@@ -107,7 +115,28 @@ export class TicketsService {
         businessId: dto.businessId,
         createdById: dto.customerId,
         assignedToId,
-      });
+      };
+
+      const attachmentList: Array<{ fileName: string; fileUrl: string; fileType?: string }> = [];
+      if (dto.attachments && Array.isArray(dto.attachments)) {
+        attachmentList.push(...dto.attachments);
+      }
+      if (dto.attachment) {
+        attachmentList.push(dto.attachment);
+      }
+
+      if (attachmentList.length > 0) {
+        ticketData.attachments = {
+          create: attachmentList.map((att) => ({
+            fileName: att.fileName,
+            fileUrl: att.fileUrl,
+            fileType: att.fileType,
+            uploadedById: user.id,
+          })),
+        };
+      }
+
+      const ticket = await this.ticketsRepository.create(ticketData);
 
       await this.auditLogsService.createLog({
         action: 'CREATE_TICKET_ON_BEHALF',
@@ -115,7 +144,7 @@ export class TicketsService {
         entityId: ticket.id,
         actorId: user.id,
         organizationId: ticket.organizationId,
-        details: { title: ticket.title, onBehalfOf: dto.customerId },
+        details: { title: ticket.title, onBehalfOf: dto.customerId, attachmentCount: attachmentList.length },
       });
 
       if (assignedToId) {
@@ -143,6 +172,7 @@ export class TicketsService {
         ...(priority && { priority }),
         ...(search && {
           OR: [
+            { id: { contains: search, mode: 'insensitive' } },
             { title: { contains: search, mode: 'insensitive' } },
             { description: { contains: search, mode: 'insensitive' } },
           ],
@@ -331,6 +361,19 @@ export class TicketsService {
         throw error;
       }
       throw new InternalServerErrorException('Failed to fetch ticket comments');
+    }
+  }
+
+  async getAttachments(user: ActiveUserData, id: string, role: string) {
+    try {
+      const ticket = await this.findOne(id, user, role);
+      return this.ticketsRepository.getAttachments(ticket.id);
+    } catch (error) {
+      this.logger.error('Failed to fetch ticket attachments', JSON.stringify({ userId: user.id, id, error: error.message }));
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to fetch ticket attachments');
     }
   }
 

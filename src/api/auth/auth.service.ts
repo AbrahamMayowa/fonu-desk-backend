@@ -10,6 +10,7 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
 import * as bcrypt from 'bcrypt';
 import { ROLES } from '../../common/constants/roles.constant';
+import { RateLimiterService } from '../../common/redis/rate-limiter.service';
 
 @Injectable()
 export class AuthService {
@@ -17,6 +18,7 @@ export class AuthService {
     private readonly authRepository: AuthRepository,
     private readonly emailService: EmailService,
     private readonly jwtService: JwtService,
+    private readonly rateLimiterService: RateLimiterService,
   ) {}
 
   private generateOtp(): string {
@@ -58,6 +60,8 @@ export class AuthService {
   }
 
   async verifyEmail(dto: VerifyOtpDto) {
+    await this.rateLimiterService.checkRateLimit('verify-email', dto.email, 6, 900);
+
     const otpRecord = await this.authRepository.findValidOtp(dto.email, dto.code, 'VERIFY_EMAIL');
 
     if (!otpRecord) {
@@ -150,6 +154,8 @@ export class AuthService {
   }
 
   async resendVerificationOtp(dto: ResendOtpDto) {
+    await this.rateLimiterService.checkRateLimit('resend-verification-otp', dto.email, 6, 1800);
+
     const existingUser = await this.authRepository.findUserByEmail(dto.email);
     if (existingUser && existingUser.emailVerified) {
       throw new ConflictException('Email is already verified.');
@@ -321,6 +327,8 @@ export class AuthService {
   }
 
   async changePassword(dto: ChangePasswordDto) {
+    await this.rateLimiterService.checkRateLimit('change-password', dto.email, 6, 900);
+
     const otpRecord = await this.authRepository.findValidOtp(dto.email, dto.code, 'RESET_PASSWORD');
 
     if (!otpRecord) {

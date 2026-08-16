@@ -19,11 +19,14 @@ import { BusinessesModule } from './api/businesses/businesses.module';
 import { APP_PIPE } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 
+import { RedisModule } from './common/redis/redis.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     EmailModule,
+    RedisModule,
     AuthModule,
     UsersModule,
     LoggerModule,

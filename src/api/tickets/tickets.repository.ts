@@ -34,30 +34,13 @@ export class TicketsRepository {
   }
 
   async findOne(id: string) {
-    let ticket = null;
-    if (id.length === 36) {
-      ticket = await this.prisma.ticket.findUnique({
-        where: { id },
-        include: {
-          createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
-          assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
-          attachments: true,
-        }
-      });
-    }
-    if (!ticket) {
-      ticket = await this.prisma.ticket.findFirst({
-        where: {
-          id: { startsWith: id, mode: 'insensitive' },
-        },
-        include: {
-          createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
-          assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
-          attachments: true,
-        }
-      });
-    }
-    return ticket;
+    return this.prisma.ticket.findUnique({
+      where: { id },
+      include: {
+        createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+        assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
+      }
+    });
   }
 
   async update(id: string, data: Prisma.TicketUpdateInput) {
@@ -176,5 +159,12 @@ export class TicketsRepository {
     return this.prisma.ticketMute.delete({
       where: { userId_ticketId: { userId, ticketId } },
     }).catch(() => null);
+  }
+
+  async getAttachments(ticketId: string) {
+    return this.prisma.ticketAttachment.findMany({
+      where: { ticketId },
+      orderBy: { createdAt: 'asc' },
+    });
   }
 }

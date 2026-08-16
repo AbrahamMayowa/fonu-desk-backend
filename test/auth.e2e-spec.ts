@@ -12,10 +12,13 @@ import { EmailService } from '../src/email/email.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 
+import { RedisService } from '../src/common/redis/redis.service';
+
 describe('AuthController (e2e)', () => {
   let app: INestApplication<App>;
   let authRepository: jest.Mocked<AuthRepository>;
   let jwtService: JwtService;
+  let redisService: RedisService;
 
   const mockPrismaService = {
     $connect: jest.fn(),
@@ -62,6 +65,8 @@ describe('AuthController (e2e)', () => {
 
     authRepository = moduleFixture.get(AuthRepository);
     jwtService = moduleFixture.get(JwtService);
+    redisService = moduleFixture.get(RedisService);
+    redisService.reset();
   });
 
   afterEach(async () => {
@@ -204,6 +209,60 @@ describe('AuthController (e2e)', () => {
         .expect((res) => {
           expect(res.body).toHaveProperty('accessToken');
         });
+    });
+  });
+
+  describe('Rate Limiting', () => {
+    it('should block verify-email after 6 attempts', async () => {
+      authRepository.findValidOtp.mockResolvedValue(null);
+
+      for (let i = 0; i < 6; i++) {
+        await request(app.getHttpServer())
+          .post('/auth/verify-email')
+          .send({ email: 'ratelimit@example.com', code: '000000', password: 'password123' })
+          .expect(400);
+      }
+
+      // 7th attempt should return 429
+      await request(app.getHttpServer())
+        .post('/auth/verify-email')
+        .send({ email: 'ratelimit@example.com', code: '000000', password: 'password123' })
+        .expect(429);
+    });
+
+    it('should block resend-verification-otp after 6 attempts', async () => {
+      authRepository.findUserByEmail.mockResolvedValue(null);
+      authRepository.findTempUserByEmail.mockResolvedValue(null);
+
+      for (let i = 0; i < 6; i++) {
+        await request(app.getHttpServer())
+          .post('/auth/resend-verification-otp')
+          .send({ email: 'resendlimit@example.com' })
+          .expect(200);
+      }
+
+      // 7th attempt should return 429
+      await request(app.getHttpServer())
+        .post('/auth/resend-verification-otp')
+        .send({ email: 'resendlimit@example.com' })
+        .expect(429);
+    });
+
+    it('should block change-password after 6 attempts', async () => {
+      authRepository.findValidOtp.mockResolvedValue(null);
+
+      for (let i = 0; i < 6; i++) {
+        await request(app.getHttpServer())
+          .post('/auth/change-password')
+          .send({ email: 'changelimit@example.com', code: '000000', newPassword: 'password123' })
+          .expect(400);
+      }
+
+      // 7th attempt should return 429
+      await request(app.getHttpServer())
+        .post('/auth/change-password')
+        .send({ email: 'changelimit@example.com', code: '000000', newPassword: 'password123' })
+        .expect(429);
     });
   });
 });
