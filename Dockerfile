@@ -1,46 +1,56 @@
-# --- BUILD STAGE ---
+# --- STAGE 1: Build ---
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install system dependencies needed for Node packages (e.g. build tools if any)
-RUN apk add --no-cache libc6-compat
+# Install system dependencies (libc6-compat for native modules, dumb-init for process management)
+RUN apk add --no-cache libc6-compat dumb-init
 
-# Copy package management files
+# Copy package dependency definitions
 COPY package.json yarn.lock ./
 
-# Install all dependencies (including devDependencies)
+# Install all dependencies (including devDependencies) deterministically
 RUN yarn install --frozen-lockfile
 
-# Copy the rest of the application source code and configurations
+# Copy application source code and configurations
 COPY . .
 
 # Generate Prisma Client
 RUN yarn prisma:generate
 
-# Build the NestJS application
+# Build NestJS production assets
 RUN yarn build
 
-# Remove development dependencies to keep production image size minimal
+# Prune devDependencies to keep production image footprint minimal
 RUN rm -rf node_modules && yarn install --production --frozen-lockfile && yarn prisma:generate
 
 
-# --- PRODUCTION RUN STAGE ---
+# --- STAGE 2: Production Runner ---
 FROM node:20-alpine AS runner
 
 WORKDIR /app
 
-# Ensure we run in production mode
+# Install dumb-init for PID 1 signal forwarding (SIGTERM / SIGINT)
+RUN apk add --no-cache dumb-init
+
 ENV NODE_ENV=production
 
-# Copy necessary files from the build stage
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/prisma ./prisma
+# Ensure app directory permissions for non-root node user
+RUN chown node:node /app
 
-# Expose the API port
+# Security best practice: Run application as non-root user
+USER node
+
+# Copy compiled artifacts, production dependencies, package metadata, and schema
+COPY --chown=node:node --from=builder /app/package.json ./
+COPY --chown=node:node --from=builder /app/yarn.lock ./
+COPY --chown=node:node --from=builder /app/node_modules ./node_modules
+COPY --chown=node:node --from=builder /app/dist ./dist
+COPY --chown=node:node --from=builder /app/prisma ./prisma
+
 EXPOSE 4000
 
-# Start the NestJS backend application
+# Use dumb-init as entrypoint wrapper for proper PID 1 signal handling
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+
 CMD ["node", "dist/main.js"]
