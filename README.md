@@ -293,29 +293,41 @@ docker build -t fonu-desk-frontend:latest .
 
 #### 3. Run the Stack via Docker Compose
 
-Once both images are built and your `.env` file is ready, start the full stack:
+Start the services with Docker Compose:
 
 ```bash
 # In fonu-desk-backend directory:
 docker compose up -d
 ```
 
-On startup, Docker Compose will automatically:
+On startup, Docker Compose will:
 1. Initialize the PostgreSQL container (`fonu-desk-db`).
-2. Run database migrations (`npx prisma migrate deploy`).
-3. Seed initial database roles & system data (`npx prisma db seed`).
-4. Launch the NestJS backend API on port `4000`.
-5. Launch the Next.js frontend on port `3000`.
+2. Launch the NestJS backend API on port `4000`.
+3. Launch the Next.js frontend on port `3000`.
 
 ---
 
-#### 4. Verification & Logs
+#### 4. Run Migrations & Seeding Manually
+
+Once the containers are running and PostgreSQL is ready, execute database migrations and seed the initial roles manually:
+
+```bash
+# 1. Run database migrations
+docker compose exec backend npx prisma migrate deploy
+
+# 2. Seed default roles (ADMIN, SUPPORT, CUSTOMER)
+docker compose exec backend npx prisma db seed
+```
+
+---
+
+#### 5. Verification & Logs
 
 ```bash
 # Check container status
 docker compose ps
 
-# View backend logs (migrations, seeding, & server status)
+# View backend logs
 docker logs -f fonu-desk-backend
 
 # View frontend logs
@@ -325,7 +337,7 @@ docker logs -f fonu-desk-frontend
 docker logs -f fonu-desk-db
 ```
 
-#### 5. Stop the Stack
+#### 6. Stop the Stack
 ```bash
 docker compose down
 ```
