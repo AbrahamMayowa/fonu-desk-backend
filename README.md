@@ -305,21 +305,6 @@ On startup, Docker Compose will:
 2. Launch the NestJS backend API on port `4000`.
 3. Launch the Next.js frontend on port `3000`.
 
----
-
-#### 4. Run Migrations & Seeding Manually
-
-Once the containers are running and PostgreSQL is ready, execute database migrations and seed the initial roles manually:
-
-```bash
-# 1. Run database migrations
-docker compose exec backend npx prisma migrate deploy
-
-# 2. Seed default roles (ADMIN, SUPPORT, CUSTOMER)
-docker compose exec backend npx prisma db seed
-```
-
----
 
 #### 5. Verification & Logs
 
