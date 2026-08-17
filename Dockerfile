@@ -1,5 +1,5 @@
 # --- STAGE 1: Build ---
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -26,7 +26,7 @@ RUN rm -rf node_modules && yarn install --production --frozen-lockfile && yarn p
 
 
 # --- STAGE 2: Production Runner ---
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 
 WORKDIR /app
 
@@ -53,4 +53,4 @@ EXPOSE 4000
 # Use dumb-init as entrypoint wrapper for proper PID 1 signal handling
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/src/main.js"]

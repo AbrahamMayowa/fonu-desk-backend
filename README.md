@@ -229,18 +229,106 @@ Prerequisites: **Node.js 20+**, **Yarn**, and a running **PostgreSQL** database.
 - **10MB Payload Limit**: Body parsers (`json` and `urlencoded`) are configured to accept payloads up to `10mb` to support base64 image file uploads during ticket creation.
 - **Rate Limiting**: Security-critical authentication routes (`/auth/verify-email`, `/auth/resend-verification-otp`, `/auth/change-password`) are guarded by `RateLimiterService` (Redis / in-memory fallback), returning HTTP `429 Too Many Requests` when limits are exceeded.
 
-### 5.3 Running via Docker Compose
-Prerequisites: **Docker** and **Docker Compose**.
+### 5.3 Dockerization & Running via Docker Compose
 
-Build and spin up the complete application stack (NestJS API + PostgreSQL DB):
-```bash
-docker compose up --build
+> [!IMPORTANT]  
+> **CRITICAL: The `.env` File is Required**  
+> `docker-compose.yml` does **NOT** contain hardcoded fallback secrets or default passwords. All runtime configuration values (PostgreSQL credentials, `DATABASE_URL`, `JWT_SECRET`, Cloudinary, SMTP) **MUST** be present in your `.env` file before running Docker Compose.
+
+#### 1. Prepare Environment Variables (`.env`)
+Ensure a `.env` file exists in the backend root directory (`fonu-desk-backend/.env`).
+
+```env
+# Database Credentials for Docker Postgres container
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=your_secure_password
+POSTGRES_DB=fonu-desk
+
+# Connection URL pointing to the 'db' container host inside Docker
+DATABASE_URL=postgresql://postgres:your_secure_password@db:5432/fonu-desk?schema=public
+
+# Application Environment & Ports
+PORT=4000
+NODE_ENV=production
+FRONTEND_URL=http://localhost:3000
+JWT_SECRET=super-secret-key-for-dev
+
+# Frontend API URL
+NEXT_PUBLIC_API_URL=http://localhost:4000
+
+# Integrations
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=your_email@gmail.com
+SMTP_PASSWORD=your_app_password
+SMTP_FROM_EMAIL=your_email@gmail.com
 ```
-On startup, the backend automatically:
-1. Waits for PostgreSQL to be fully ready and accepting connections.
-2. Deploys the latest database migrations (`prisma migrate deploy`).
-3. Seeds default Roles into the database.
-4. Launches the NestJS HTTP server on port `4000`.
+
+> **Note on `DATABASE_URL`**: When running under Docker Compose, the database hostname **must be `db`** (e.g. `postgresql://user:pass@db:5432/fonu-desk`), matching the service name defined in `docker-compose.yml`.
+
+---
+
+#### 2. Build the Docker Images
+
+Since the backend and frontend exist in separate repositories, build both images locally before running Compose:
+
+**Step A: Build Backend Image**
+```bash
+# In fonu-desk-backend directory:
+docker build -t fonu-desk-backend:latest .
+```
+
+**Step B: Build Frontend Image**
+```bash
+# In fonu-desk-frontend directory:
+docker build -t fonu-desk-frontend:latest .
+```
+
+---
+
+#### 3. Run the Stack via Docker Compose
+
+Once both images are built and your `.env` file is ready, start the full stack:
+
+```bash
+# In fonu-desk-backend directory:
+docker compose up -d
+```
+
+On startup, Docker Compose will automatically:
+1. Initialize the PostgreSQL container (`fonu-desk-db`).
+2. Run database migrations (`npx prisma migrate deploy`).
+3. Seed initial database roles & system data (`npx prisma db seed`).
+4. Launch the NestJS backend API on port `4000`.
+5. Launch the Next.js frontend on port `3000`.
+
+---
+
+#### 4. Verification & Logs
+
+```bash
+# Check container status
+docker compose ps
+
+# View backend logs (migrations, seeding, & server status)
+docker logs -f fonu-desk-backend
+
+# View frontend logs
+docker logs -f fonu-desk-frontend
+
+# View database logs
+docker logs -f fonu-desk-db
+```
+
+#### 5. Stop the Stack
+```bash
+docker compose down
+```
 
 ---
 
