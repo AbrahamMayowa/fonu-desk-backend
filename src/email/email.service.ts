@@ -13,10 +13,26 @@ export class EmailService {
 
   private getTemplate(templateName: string): handlebars.TemplateDelegate {
     if (!this.templates[templateName]) {
-      const templatePath = path.join(process.cwd(), 'src', 'email', 'templates', `${templateName}.hbs`);
+      const possiblePaths = [
+        path.join(__dirname, 'templates', `${templateName}.hbs`),
+        path.join(__dirname, '..', '..', 'email', 'templates', `${templateName}.hbs`),
+        path.join(process.cwd(), 'dist', 'src', 'email', 'templates', `${templateName}.hbs`),
+        path.join(process.cwd(), 'dist', 'email', 'templates', `${templateName}.hbs`),
+        path.join(process.cwd(), 'src', 'email', 'templates', `${templateName}.hbs`),
+      ];
+
+      const templatePath = possiblePaths.find((p) => fs.existsSync(p));
+
+      if (!templatePath) {
+        throw new Error(
+          `Email template '${templateName}.hbs' not found. Searched in: ${possiblePaths.join(', ')}`,
+        );
+      }
+
       let templateContent = fs.readFileSync(templatePath, 'utf8');
 
-      const layoutPath = path.join(process.cwd(), 'src', 'email', 'templates', 'layout.hbs');
+      const templateDir = path.dirname(templatePath);
+      const layoutPath = path.join(templateDir, 'layout.hbs');
       if (fs.existsSync(layoutPath) && templateName !== 'layout') {
         const layoutContent = fs.readFileSync(layoutPath, 'utf8');
         templateContent = layoutContent.replace('{{{body}}}', templateContent);
